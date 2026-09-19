@@ -93,8 +93,8 @@ services:
     volumes:
       - ./web:/web:ro
     ports:
-      # Bound to loopback: put a reverse proxy in front for TLS. Change to
-      # "8000:8000" only if something else already terminates TLS for you.
+      # Bound to loopback: put a reverse proxy in front for TLS. Drop the
+      # 127.0.0.1 prefix only if something else already terminates TLS for you.
       - "127.0.0.1:8000:8000"
     depends_on:
       db:
