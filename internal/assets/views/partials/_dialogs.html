@@ -1,0 +1,30 @@
+{{define "partials/_dialogs.html"}}
+<dialog class="tmp-dialog" id="tmp-confirm" aria-labelledby="tmp-confirm-title">
+  <form method="dialog" class="tmp-dialog-body">
+    <h2 id="tmp-confirm-title" class="tmp-dialog-title">{{t "dialog.confirm_title"}}</h2>
+    <p class="tmp-dialog-text" data-confirm-text></p>
+    <div class="tmp-dialog-actions">
+      <button class="tmp-btn tmp-btn-secondary" value="cancel">{{t "common.cancel"}}</button>
+      <button class="tmp-btn tmp-btn-danger" value="ok" data-confirm-ok>{{t "common.confirm"}}</button>
+    </div>
+  </form>
+</dialog>
+<dialog class="tmp-dialog tmp-dialog-wide" id="tmp-quickadd" aria-labelledby="tmp-quickadd-title">
+  <form method="post" action="/organize" class="tmp-dialog-body">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <h2 id="tmp-quickadd-title" class="tmp-dialog-title">{{template "icon" "sparkle"}} {{t "quick.title"}}</h2>
+    <p class="tmp-dialog-text tmp-dialog-lead">{{t "quick.lead"}}</p>
+    <label class="tmp-label" for="tmp-quick-content">{{t "quick.content"}}</label>
+    <textarea class="tmp-input tmp-quick-area" id="tmp-quick-content" name="content" required rows="10" spellcheck="false" placeholder="{{t "quick.placeholder"}}"></textarea>
+    <div class="tmp-dialog-row">
+      <div><label class="tmp-label" for="tmp-quick-filename">{{t "quick.filename"}}</label><input class="tmp-input" id="tmp-quick-filename" name="filename" autocomplete="off" spellcheck="false" placeholder="notes.md"></div>
+      <div><label class="tmp-label" for="tmp-quick-hint">{{t "quick.hint"}}</label><input class="tmp-input" id="tmp-quick-hint" name="hint" autocomplete="off" placeholder="{{t "quick.hint_placeholder"}}"></div>
+    </div>
+    <div class="tmp-dialog-actions">
+      <button type="button" class="tmp-btn tmp-btn-secondary" data-close-dialog>{{t "common.cancel"}}</button>
+      <button class="tmp-btn">{{template "icon" "sparkle"}} {{t "quick.submit"}}</button>
+    </div>
+  </form>
+</dialog>
+<div class="tmp-toast" id="tmp-toast" role="status" aria-live="polite" hidden></div>
+{{end}}

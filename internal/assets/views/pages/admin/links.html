@@ -1,0 +1,10 @@
+{{define "content"}}
+<h1 class="tmp-h1-small">{{t "admin.links"}}</h1>
+<p class="tmp-muted small">{{t "admin.links_help"}}</p>
+{{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+{{if .Notice}}<div class="alert alert-success">{{.Notice}}</div>{{end}}
+{{if .Links}}<div class="card"><table class="table align-middle mb-0"><thead><tr><th>{{t "share.col_document"}}</th><th>{{t "share.label"}}</th><th>{{t "history.when"}}</th><th>{{t "share.assets"}}</th><th></th></tr></thead><tbody>
+{{range .Links}}<tr><td><a href="/share{{htmlpath .Path}}">{{.Path}}</a></td><td>{{if .Label}}{{.Label}}{{else}}#{{.ID}}{{end}}</td><td class="small">{{date .CreatedAt}}</td><td>{{.Assets}}</td>
+<td class="text-end">{{if .RevokedAt}}<span class="badge text-bg-secondary">{{t "share.revoked"}}</span>{{else}}<form method="post" action="/admin/links/revoke" data-confirm="{{t "share.revoke_confirm"}}"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button class="tmp-btn tmp-btn-danger tmp-btn-sm">{{template "icon" "x"}} {{t "share.revoke"}}</button></form>{{end}}</td></tr>{{end}}
+</tbody></table></div>{{else}}<p class="tmp-muted">{{t "admin.links_none"}}</p>{{end}}
+{{end}}

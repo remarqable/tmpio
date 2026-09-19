@@ -1,0 +1,17 @@
+/* Brand overrides for the Bootstrap layouts (sign-in, consent, errors). Dark by default. */
+[data-bs-theme="dark"] { --bs-body-bg: #0a0d12; --bs-body-color: #e6edf3; --bs-tertiary-bg: #0f141b; --bs-border-color: #1f2937; --bs-link-color: #7cc4ff; --bs-link-color-rgb: 124, 196, 255; --bs-link-hover-color: #a9d6ff; }
+[data-bs-theme="dark"] .btn-dark { --bs-btn-bg: #e6edf3; --bs-btn-color: #0a0d12; --bs-btn-border-color: #e6edf3; --bs-btn-hover-bg: #c9d6e3; --bs-btn-hover-color: #0a0d12; --bs-btn-hover-border-color: #c9d6e3; }
+:root { --bs-primary: #111827; --bs-primary-rgb: 17, 24, 39; --bs-link-color: #1f4fbf; --bs-link-color-rgb: 31, 79, 191; }
+body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; }
+.card-hover:hover { box-shadow: 0 .5rem 1rem rgba(0,0,0,.12); transition: box-shadow .15s ease-in-out; }
+.htmx-indicator { display: none; }
+.htmx-request .htmx-indicator, .htmx-request.htmx-indicator { display: inline-block; }
+.tmp-preview { min-height: 12rem; overflow: auto; }
+.tmp-diff .diff-add { color: #166534; background: #dcfce7; display: block; }
+.tmp-diff .diff-del { color: #991b1b; background: #fee2e2; display: block; }
+.tmp-diff .diff-same { display: block; }
+pre.text-wrap { white-space: pre-wrap; }
+.app-main { max-width: 1200px; }
+.bare-main { max-width: 720px; }
+.app-narrow { max-width: 640px; }
+.app-scroll-pane { max-height: 70vh; overflow: auto; }

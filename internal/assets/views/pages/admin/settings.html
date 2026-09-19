@@ -1,0 +1,50 @@
+{{define "content"}}
+<h1 class="tmp-h1-small">{{.Site.Title}}</h1>
+{{if .Saved}}<div class="alert alert-success">{{t "settings.saved"}}</div>{{end}}
+<div class="row g-3">
+<div class="col-lg-5">
+<div class="card"><div class="card-body">
+<form method="post" action="/admin/settings/org">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <div class="mb-3"><label class="form-label" for="org-name">{{t "settings.org_name"}}</label><input class="form-control" id="org-name" name="name" maxlength="120" value="{{.Tenant.DisplayName}}"><div class="form-text">{{t "settings.org_name_help"}}</div></div>
+  <div class="mb-3"><label class="form-label">{{t "settings.org_code"}}</label><div><code>{{.Tenant.Code}}</code></div></div>
+  <button class="tmp-btn">{{template "icon" "check"}} {{t "settings.save"}}</button>
+</form>
+</div></div>
+<div class="card mt-3"><div class="card-body">
+<h2 class="h6">{{t "settings.ai_title"}}</h2>
+{{if .AIAvailable}}
+<p class="form-text">{{t "settings.ai_help" "model" .AIModel}}</p>
+<form method="post" action="/admin/settings/ai">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <input type="hidden" name="ai_filing" value="0">
+  <div class="form-check mb-2"><input class="form-check-input" type="checkbox" id="ai-filing" name="ai_filing" value="1"{{if .AIFiling}} checked{{end}}><label class="form-check-label" for="ai-filing">{{t "settings.ai_toggle"}}</label></div>
+  <button class="tmp-btn">{{template "icon" "check"}} {{t "settings.save"}}</button>
+</form>
+{{else}}
+<p class="form-text mb-0">{{t "settings.ai_unavailable"}}</p>
+{{end}}
+</div></div>
+<div class="card mt-3 border-danger"><div class="card-body">
+<h2 class="h6 text-danger">{{t "settings.danger_title"}}</h2>
+<p class="form-text">{{t "settings.danger_help"}} <a href="/admin/export">{{t "nav.export"}}</a></p>
+<form method="post" action="/admin/settings/delete-account">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <div class="mb-2"><label class="form-label" for="delete-confirm">{{t "settings.delete_confirm"}} <code>{{.Tenant.Code}}</code></label><input class="form-control" id="delete-confirm" name="confirm" autocomplete="off" required pattern="[A-Za-z0-9]{8}"></div>
+  <button class="btn btn-outline-danger btn-sm">{{t "settings.delete_cta"}}</button>
+</form>
+</div></div>
+</div>
+<div class="col-lg-7">
+<div class="card"><div class="card-body">
+<h2 class="h6">{{t "settings.config"}}</h2>
+<p class="form-text">{{t "settings.config_help"}} {{t "settings.theme"}}: <code>docs</code> | <code>editorial</code>. {{t "settings.appearance"}}: <code>light</code> | <code>dark</code> | <code>system</code>.</p>
+<form method="post" action="/edit/tmp.yaml">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="path" value="/tmp.yaml"><input type="hidden" name="expected_revision" value="{{.Expected}}"><input type="hidden" name="request_id" value="{{.RequestID}}">
+  <textarea class="form-control font-monospace mb-2" name="content" rows="16" spellcheck="false">{{.ConfigSource}}</textarea>
+  <button class="tmp-btn">{{template "icon" "check"}} {{t "settings.save"}}</button>
+</form>
+</div></div>
+</div>
+</div>
+{{end}}

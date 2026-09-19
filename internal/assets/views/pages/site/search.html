@@ -1,0 +1,10 @@
+{{define "content"}}
+<article class="tmp-article">
+  <header class="tmp-article-header"><h1>{{t "site.search_results"}}</h1></header>
+  <form class="tmp-search tmp-search-page" action="{{.Site.Prefix}}/search" method="get" role="search"><label class="visually-hidden" for="tmp-q2">{{t "site.search"}}</label><input id="tmp-q2" type="search" name="q" value="{{.Site.Query}}" placeholder="{{t "site.search"}}"><button type="submit" class="tmp-btn">{{template "icon" "search"}} {{t "site.search"}}</button></form>
+  {{if .Site.Search}}{{if .Site.Search.Hits}}
+  <ul class="tmp-results">{{range .Site.Search.Hits}}<li><a href="{{$.Site.Prefix}}{{.HTMLPath}}">{{.Title}}</a><div class="tmp-result-path">{{.Path}}</div><p>{{.Snippet}}</p></li>{{end}}</ul>
+  {{if .Site.Search.NextCursor}}<a href="{{.Site.Prefix}}/search?q={{.Site.Query}}&amp;cursor={{.Site.Search.NextCursor}}">{{t "common.more"}}</a>{{end}}
+  {{else}}<p class="tmp-lead">{{t "site.search_none"}}</p>{{end}}{{end}}
+</article>
+{{end}}

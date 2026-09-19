@@ -1,0 +1,28 @@
+{{define "content"}}
+<h1 class="tmp-h1-small">{{t "admin.overview"}}</h1>
+<div class="row g-3 mb-3">
+  <div class="col-lg-6"><div class="card h-100"><div class="card-body">
+    <h2 class="h6">{{t "dash.private_address"}}</h2>
+    <div class="input-group"><input class="form-control font-monospace" readonly value="{{.Origin}}{{.OrgPrefix}}/"><button class="tmp-btn tmp-btn-secondary" type="button" data-copy-btn="{{.Origin}}{{.OrgPrefix}}/">{{template "icon" "copy"}} {{t "content.copy_link"}}</button></div>
+    <div class="form-text">{{t "admin.address_help"}}</div>
+  </div></div></div>
+  <div class="col-lg-6"><div class="card h-100"><div class="card-body">
+    <h2 class="h6">{{t "connections.mcp_url"}}</h2>
+    <div class="input-group"><input class="form-control font-monospace" readonly value="{{.MCPURL}}"><button class="tmp-btn tmp-btn-secondary" type="button" data-copy-btn="{{.MCPURL}}">{{template "icon" "copy"}} {{t "common.copy"}}</button></div>
+    <div class="form-text"><a href="/admin/connections">{{t "dash.connect"}}</a> · {{t "dash.first_prompt"}}: <em>{{t "dash.first_prompt_text"}}</em></div>
+  </div></div></div>
+</div>
+<div class="card mb-3"><div class="card-body tmp-ai-card">
+  <div><h2 class="h6 mb-1">{{template "icon" "sparkle"}} {{t "admin.ai_title"}}</h2>
+  <p class="tmp-muted small mb-0">{{if .AIEnabled}}{{t "admin.ai_on" "model" .AIModel}}{{else}}{{t "admin.ai_off"}}{{end}}</p>
+  {{if .AI.LastError}}<p class="small mb-0 mt-1 text-warning">{{template "icon" "alert"}} {{t "admin.ai_last_error"}}: <code>{{.AI.LastError}}</code></p>{{end}}</div>
+  {{if .AIEnabled}}<dl class="tmp-ai-stats"><div><dt>{{t "admin.ai_calls"}}</dt><dd>{{.AI.Calls24h}}</dd></div><div><dt>{{t "admin.ai_tokens"}}</dt><dd>{{.AI.Tokens24h}}</dd></div><div><dt>{{t "admin.ai_fallbacks"}}</dt><dd>{{.AI.Fallbacks24h}}</dd></div></dl>{{end}}
+</div></div>
+<div class="card"><div class="card-header">{{t "dash.recent"}}</div>
+  {{if .Recent}}<ul class="list-group list-group-flush">
+  {{range .Recent}}<li class="list-group-item d-flex justify-content-between align-items-start gap-2">
+    <div><a href="/history{{htmlpath .Path}}">{{.Path}}</a> <span class="badge text-bg-secondary">{{.Operation}}</span><div class="small tmp-muted">{{.Actor}}{{if .AuthorName}} · “{{.AuthorName}}” ({{t "history.unverified"}}){{end}}{{if .Summary}} · {{.Summary}}{{end}}</div></div>
+    <div class="text-nowrap small tmp-muted">r{{.Revision}} · {{date .CreatedAt}}</div>
+  </li>{{end}}</ul>{{else}}<div class="card-body tmp-muted">{{t "dash.no_recent"}}</div>{{end}}
+</div>
+{{end}}

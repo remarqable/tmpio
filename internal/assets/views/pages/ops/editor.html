@@ -1,0 +1,32 @@
+{{define "content"}}
+<h1 class="tmp-h1-small">{{template "icon" "edit"}} {{t "content.edit"}} <code class="tmp-op-path">{{.Path}}</code></h1>
+{{if .Error}}
+<div class="alert {{if .Conflict}}alert-warning{{else}}alert-danger{{end}}" role="alert">
+  {{if .Conflict}}{{t "editor.conflict" "rev" (print .Conflict)}}{{else}}<strong>{{t "editor.invalid"}}</strong> {{.Error.Message}}{{end}}
+  {{if .Error.FieldErrors}}<ul class="mb-0 mt-2">{{range .Error.FieldErrors}}<li>{{if .Line}}{{t "editor.line" "n" (print .Line)}}: {{end}}{{.Message}}</li>{{end}}</ul>{{end}}
+  <div class="small mt-1">{{t "editor.unsaved_kept"}}</div>
+</div>
+{{end}}
+<form method="post" action="{{.Action}}" id="editor-form" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <input type="hidden" name="expected_revision" value="{{.Expected}}">
+  <input type="hidden" name="request_id" value="{{.RequestID}}">
+  <input type="hidden" name="path" value="{{.Path}}">
+  <div class="{{if .IsFile}}col-12{{else}}col-lg-6{{end}}">
+    <div class="tmp-pane-label"><label class="form-label mb-0" for="content">{{t "editor.source"}}</label></div>
+    <textarea class="form-control font-monospace tmp-editor-area" id="content" name="content" {{if not .IsFile}}hx-post="/preview" hx-trigger="input changed delay:500ms, load"{{end}} hx-include="#content,input[name=path]" hx-headers='{"X-CSRF-Token":"{{.CSRF}}"}' hx-target="#preview" hx-swap="innerHTML" rows="26" spellcheck="false">{{.Content}}</textarea>
+  </div>
+  {{if not .IsFile}}<div class="col-lg-6">
+    <div class="tmp-pane-label"><span class="form-label mb-0">{{t "editor.preview"}}</span>
+      <button class="tmp-btn tmp-btn-secondary tmp-btn-sm" type="button" hx-post="/preview" hx-include="#content,input[name=path]" hx-headers='{"X-CSRF-Token":"{{.CSRF}}"}' hx-target="#preview" hx-swap="innerHTML">{{t "editor.preview_refresh"}}</button></div>
+    <div id="preview" class="tmp-preview tmp-editor-area" aria-live="polite"><span class="tmp-muted">{{t "editor.preview_empty"}}</span></div>
+  </div>{{end}}
+  <div class="col-lg-8"><label class="form-label" for="summary">{{t "editor.summary"}}</label><input class="form-control" id="summary" name="summary" maxlength="500" value="{{.Summary}}"></div>
+  <div class="col-12 d-flex flex-wrap gap-2 align-items-center">
+    <button class="tmp-btn">{{template "icon" "check"}} {{t "editor.save"}}</button>
+    <a class="tmp-btn tmp-btn-secondary" href="{{if .IsConfig}}/admin/settings{{else}}{{.Entry.HTMLPath}}{{end}}">{{t "editor.cancel"}}</a>
+    {{if not .IsConfig}}<a class="tmp-btn tmp-btn-secondary" href="/history{{.Entry.HTMLPath}}">{{template "icon" "history"}} {{t "content.history"}}</a>{{if not .IsFile}}<a class="tmp-btn tmp-btn-secondary" href="/share{{.Entry.HTMLPath}}">{{template "icon" "share"}} {{t "content.share"}}</a>{{end}}{{end}}
+    <a class="tmp-btn tmp-btn-secondary ms-auto" href="/format">{{template "icon" "info"}} {{t "editor.format_help"}}</a>
+  </div>
+</form>
+{{end}}

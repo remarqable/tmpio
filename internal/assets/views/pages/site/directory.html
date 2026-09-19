@@ -1,0 +1,23 @@
+{{define "content"}}
+{{if .Site.Breadcrumbs}}<nav class="tmp-crumbs" aria-label="{{t "site.breadcrumb"}}"><ol>{{range .Site.Breadcrumbs}}<li>{{if .Last}}<span aria-current="page">{{.Title}}</span>{{else}}<a href="{{.URL}}">{{.Title}}</a>{{end}}</li>{{end}}</ol></nav>{{end}}
+{{if .Error}}<div class="tmp-callout tmp-callout-important" role="alert"><div class="tmp-callout-body">{{.Error}}</div></div>{{end}}
+<article class="tmp-article">
+  <header class="tmp-article-header">
+    <h1>{{if eq .Site.Directory.Path "/"}}{{.Site.Name}}{{else}}{{t "site.index_of"}} {{.Site.Directory.Path}}/{{end}}</h1>
+    {{if .Site.IsOwner}}
+    <div class="tmp-actions">
+      <a class="tmp-btn" href="/new{{if eq .Site.Directory.Path "/"}}/{{else}}{{.Site.Directory.Path}}/{{end}}">{{template "icon" "file-plus"}} {{t "content.new_page"}}</a>
+      <a class="tmp-btn tmp-btn-secondary" href="/new{{if eq .Site.Directory.Path "/"}}/{{else}}{{.Site.Directory.Path}}/{{end}}?kind=folder">{{template "icon" "folder-plus"}} {{t "content.new_folder"}}</a>
+      <a class="tmp-btn tmp-btn-secondary" href="/new{{if eq .Site.Directory.Path "/"}}/{{else}}{{.Site.Directory.Path}}/{{end}}?kind=image">{{template "icon" "upload"}} {{t "content.upload"}}</a>
+      {{if ne .Site.Directory.Path "/"}}<a class="tmp-btn tmp-btn-secondary" href="/history{{.Site.Directory.HTMLPath}}">{{template "icon" "history"}} {{t "content.history"}}</a>
+      <form method="post" action="/delete{{.Site.Directory.HTMLPath}}" data-confirm="{{t "content.delete_confirm"}}" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="expected_revision" value="{{.Site.Directory.CurrentRevision}}"><button class="tmp-btn tmp-btn-danger">{{template "icon" "trash"}} {{t "content.delete"}}</button></form>{{end}}
+    </div>
+    {{end}}
+  </header>
+  {{if .Site.Listing}}
+  <div class="tmp-cards">{{range .Site.Listing}}<a class="tmp-card" href="{{.URL}}"><span class="tmp-card-title">{{if eq .Kind "directory"}}{{template "icon" "folder"}}{{else if eq .Kind "page"}}{{template "icon" "edit"}}{{else}}{{template "icon" "file"}}{{end}} {{.Title}}</span><span class="tmp-card-desc">{{.Path}}</span></a>{{end}}</div>
+  {{else}}<p class="tmp-lead">{{t "site.empty_dir"}}</p>{{end}}
+  {{if and .Site.IsOwner .Assets}}<h2 class="tmp-h2-small">{{t "content.kind.asset"}}</h2><ul class="tmp-results">{{range .Assets}}<li><a href="{{.Path}}">{{.Path}}</a> <span class="tmp-muted">{{t "content.revision"}} {{.CurrentRevision}}</span> · <a href="/history{{.Path}}">{{t "content.history"}}</a>
+    <form method="post" action="/delete{{.Path}}" data-confirm="{{t "content.delete_confirm"}}" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="expected_revision" value="{{.CurrentRevision}}"><button class="tmp-linkbtn">{{t "content.delete"}}</button></form></li>{{end}}</ul>{{end}}
+</article>
+{{end}}

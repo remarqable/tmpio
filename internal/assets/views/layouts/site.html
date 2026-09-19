@@ -1,0 +1,76 @@
+{{define "layout/site"}}<!DOCTYPE html>
+<html lang="{{.Lang}}" data-theme="{{.Site.Config.Theme}}" data-appearance="{{.Site.Config.Appearance}}" data-bs-theme="{{if eq .Site.Config.Appearance "light"}}light{{else}}dark{{end}}">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{.Site.Title}}{{if ne .Site.Title .Site.Name}} · {{.Site.Name}}{{end}}</title>
+{{if and .Site.Page .Site.Page.Description}}<meta name="description" content="{{.Site.Page.Description}}">{{end}}
+<meta name="robots" content="noindex, nofollow, noarchive">
+<link rel="stylesheet" href="{{asset "css/bootstrap.min.css"}}">
+<link rel="stylesheet" href="{{asset "css/site.css"}}">
+<link rel="stylesheet" href="{{asset "css/app.css"}}">
+<script src="{{asset "js/site.js"}}" defer></script>
+{{if or .Site.Shared .Site.IsOwner}}<script src="{{asset "js/htmx.min.js"}}" defer></script><script src="{{asset "js/app.js"}}" defer></script>{{end}}
+</head>
+<body class="tmp-site tmp-mode-{{if .Site.Mode}}{{.Site.Mode}}{{else}}site{{end}}" data-csrf="{{.CSRF}}" data-copied="{{t "content.copied"}}">
+{{template "partials/_icons.html" .}}
+<a class="tmp-skip" href="#tmp-main">{{t "site.skip"}}</a>
+<header class="tmp-header">
+  <div class="tmp-header-inner">
+    <div class="tmp-brand">
+      {{if .Site.Shared}}<span class="tmp-brand-name">{{.Site.Name}}</span>{{else}}<a class="tmp-brand-name" href="{{.Site.Prefix}}/">{{.Site.Name}}</a>{{end}}
+      {{if .Site.Shared}}<span class="tmp-badge tmp-badge-warn">{{t "site.shared_document"}}</span>{{else if eq .Site.Mode "admin"}}<span class="tmp-badge tmp-badge-admin">{{t "admin.badge"}}</span>{{else}}<span class="tmp-badge">{{t "site.private"}}</span>{{end}}
+    </div>
+    {{if not .Site.Shared}}
+    <nav class="tmp-nav" aria-label="{{t "site.nav_primary"}}">
+      <button class="tmp-menu-btn" type="button" aria-expanded="false" aria-controls="tmp-sidebar" data-toggle-sidebar>{{template "icon" "menu"}} {{t "site.menu"}}</button>
+      {{if eq .Site.Mode "admin"}}
+        <a href="/" class="tmp-owner-link">{{template "icon" "back"}} {{t "admin.back"}}</a>
+      {{else}}
+        {{range .Site.Nav}}<a href="{{.Path}}" {{if eq .Path $.Site.CurrentHTML}}aria-current="page"{{end}}>{{.Title}}</a>{{end}}
+        {{if .Site.Config.Features.Search}}<form class="tmp-search" action="{{.Site.Prefix}}/search" method="get" role="search"><label class="visually-hidden" for="tmp-q">{{t "site.search"}}</label><input id="tmp-q" type="search" name="q" value="{{.Site.Query}}" placeholder="{{t "site.search"}}"></form>{{end}}
+        {{if .Site.IsOwner}}<a href="/admin" class="tmp-owner-link">{{template "icon" "settings"}} {{t "admin.title"}}</a>{{end}}
+      {{end}}
+      {{if .Site.IsOwner}}<form method="post" action="/logout" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button type="submit" class="tmp-linkbtn">{{t "auth.logout"}}</button></form>{{end}}
+    </nav>
+    {{end}}
+    <div class="tmp-appearance" role="group" aria-label="{{t "site.appearance"}}">
+      <button type="button" data-appearance="light" aria-label="{{t "site.light"}}" title="{{t "site.light"}}">{{template "icon" "sun"}}</button>
+      <button type="button" data-appearance="dark" aria-label="{{t "site.dark"}}" title="{{t "site.dark"}}">{{template "icon" "moon"}}</button>
+      <button type="button" data-appearance="system" aria-label="{{t "site.system"}}" title="{{t "site.system"}}">{{template "icon" "contrast"}}</button>
+    </div>
+  </div>
+</header>
+<div class="tmp-body {{if .Site.Shared}}tmp-body-shared{{end}} {{if .Site.Wide}}tmp-body-wide{{end}}">
+  {{if eq .Site.Mode "admin"}}
+  <aside id="tmp-sidebar" class="tmp-sidebar" aria-label="{{t "admin.title"}}">
+    <nav><ul class="tmp-tree tmp-adminnav">{{range .Site.AdminNav}}<li><a href="{{.URL}}" {{if .Active}}aria-current="page"{{end}}>{{template "icon" .Icon}} {{.Title}}</a></li>{{end}}</ul></nav>
+    <div class="tmp-tools"><a class="tmp-tool" href="/">{{template "icon" "back"}} {{t "admin.back"}}</a></div>
+  </aside>
+  {{else if and (not .Site.Shared) (or .Site.Config.Sidebar.Auto .Site.IsOwner)}}
+  <aside id="tmp-sidebar" class="tmp-sidebar" aria-label="{{t "site.contents"}}">
+    {{if .Site.IsOwner}}
+    <div class="tmp-tools" aria-label="{{t "tools.title"}}">
+      <a class="tmp-tool tmp-tool-primary" href="/new{{if .Site.CurrentDir}}{{if eq .Site.CurrentDir "/"}}/{{else}}{{.Site.CurrentDir}}/{{end}}{{else}}/{{end}}" title="{{t "content.new_page"}}">{{template "icon" "file-plus"}} {{t "content.new_page"}}</a>
+      <a class="tmp-tool" href="/new{{if .Site.CurrentDir}}{{if eq .Site.CurrentDir "/"}}/{{else}}{{.Site.CurrentDir}}/{{end}}{{else}}/{{end}}?kind=folder" title="{{t "content.new_folder"}}">{{template "icon" "folder-plus"}}<span class="tmp-tool-label"> {{t "content.new_folder"}}</span></a>
+      <a class="tmp-tool" href="/new{{if .Site.CurrentDir}}{{if eq .Site.CurrentDir "/"}}/{{else}}{{.Site.CurrentDir}}/{{end}}{{else}}/{{end}}?kind=image" title="{{t "content.upload"}}">{{template "icon" "upload"}}<span class="tmp-tool-label"> {{t "content.upload"}}</span></a>
+      <button class="tmp-tool tmp-tool-block" type="button" data-open-dialog="tmp-quickadd" title="{{t "quick.lead"}}">{{template "icon" "sparkle"}} {{t "quick.title"}}</button>
+    </div>
+    {{end}}
+    <nav>{{template "partials/_tree.html" (dict "Nodes" .Site.Sidebar "Current" .Site.CurrentHTML)}}</nav>
+    {{if .Site.IsOwner}}<div class="tmp-tools tmp-tools-bottom"><a class="tmp-tool" href="/trash" {{if eq .Site.CurrentHTML "/trash"}}aria-current="page"{{end}}>{{template "icon" "trash"}} {{t "nav.trash"}}</a><a class="tmp-tool" href="/format">{{template "icon" "info"}} {{t "editor.format_help"}}</a></div>{{end}}
+  </aside>
+  {{end}}
+  <main id="tmp-main" class="tmp-main">
+    {{template "content" .}}
+  </main>
+  {{if and .Site.Page .Site.Config.Features.TOC .Site.Page.TOC (not .Site.Wide)}}
+  <aside class="tmp-toc" aria-label="{{t "site.on_this_page"}}">
+    <div class="tmp-toc-title">{{t "site.on_this_page"}}</div>
+    <ul>{{range .Site.Page.TOC}}<li class="tmp-toc-l{{.Level}}"><a href="#{{.ID}}">{{.Text}}</a></li>{{end}}</ul>
+  </aside>
+  {{end}}
+</div>
+{{if .Site.IsOwner}}{{template "partials/_dialogs.html" .}}{{end}}
+</body>
+</html>{{end}}

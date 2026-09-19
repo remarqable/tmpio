@@ -1,0 +1,32 @@
+{{define "content"}}
+{{if .Site.Breadcrumbs}}<nav class="tmp-crumbs" aria-label="{{t "site.breadcrumb"}}"><ol>{{range .Site.Breadcrumbs}}<li>{{if .Last}}<span aria-current="page">{{.Title}}</span>{{else}}<a href="{{.URL}}">{{.Title}}</a>{{end}}</li>{{end}}</ol></nav>{{end}}
+{{if .Saved}}<div class="tmp-callout tmp-callout-tip" role="status"><div class="tmp-callout-body">{{t "editor.saved" "rev" .Saved}}</div></div>{{end}}
+<article class="tmp-article tmp-article-wide">
+  <header class="tmp-article-header">
+    <h1><code class="tmp-filename">{{.Site.Entry.Name}}</code></h1>
+    <div class="tmp-meta">
+      <span>{{t "content.kind.file"}} · {{.Lines}} {{t "file.lines"}} · {{.Bytes}} {{t "file.bytes"}}</span>
+      <span>{{t "content.revision"}} {{.Site.Entry.CurrentRevision}} · {{date .Site.Entry.UpdatedAt}}</span>
+    </div>
+    {{if .Site.IsOwner}}
+    <div class="tmp-actions">
+      <a class="tmp-btn tmp-btn-secondary" href="/edit{{.Site.Entry.Path}}">{{template "icon" "edit"}} {{t "content.edit"}}</a>
+      <a class="tmp-btn tmp-btn-secondary" href="/history{{.Site.Entry.Path}}">{{template "icon" "history"}} {{t "content.history"}}</a>
+      <button class="tmp-btn tmp-btn-secondary" type="button" data-open-dialog="tmp-move">{{template "icon" "move"}} {{t "content.move"}}</button>
+      <a class="tmp-btn tmp-btn-secondary" href="{{.Site.CurrentHTML}}?raw=1">{{template "icon" "download"}} {{t "file.download"}}</a>
+      <button class="tmp-btn tmp-btn-secondary" type="button" data-copy-btn="{{.Origin}}{{.OrgPrefix}}{{.Site.Entry.Path}}">{{template "icon" "copy"}} {{t "content.copy_link"}}</button>
+      <form method="post" action="/delete{{.Site.Entry.Path}}" data-confirm="{{t "content.delete_confirm"}}" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="expected_revision" value="{{.Site.Entry.CurrentRevision}}"><button class="tmp-btn tmp-btn-danger">{{template "icon" "trash"}} {{t "content.delete"}}</button></form>
+    </div>
+    {{template "partials/_move_dialog.html" (dict "CSRF" .CSRF "Entry" .Site.Entry "Action" (print "/move" .Site.Entry.Path))}}
+    {{end}}
+  </header>
+  <div class="tmp-content">
+  {{if .Header}}
+    <div class="tmp-table-wrap"><table><thead><tr>{{range .Header}}<th>{{.}}</th>{{end}}</tr></thead><tbody>{{range .Rows}}<tr>{{range .}}<td>{{.}}</td>{{end}}</tr>{{end}}</tbody></table></div>
+    {{if .Truncated}}<p class="tmp-muted">{{t "file.rows_truncated"}}</p>{{end}}
+  {{else}}
+    <pre class="tmp-file"><code class="language-{{.Lang}}">{{.Source}}</code></pre>
+  {{end}}
+  </div>
+</article>
+{{end}}

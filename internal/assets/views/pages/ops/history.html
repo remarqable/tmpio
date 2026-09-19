@@ -1,0 +1,29 @@
+{{define "content"}}
+<h1 class="tmp-h1-small">{{template "icon" "history"}} {{t "content.history"}} <code class="tmp-op-path">{{.Entry.Path}}</code></h1>
+<p class="tmp-muted small">{{t "content.revision"}} {{.Entry.CurrentRevision}}{{if .Entry.Deleted}} · {{t "history.deleted"}}{{end}} · <a href="{{.Entry.HTMLPath}}">{{t "content.view"}}</a>{{if eq .Entry.Kind "page"}} · <a href="/edit{{.Entry.HTMLPath}}">{{t "content.edit"}}</a>{{end}}</p>
+{{if .Restored}}<div class="alert alert-success">{{t "history.restored" "rev" .Restored}}</div>{{end}}
+{{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+{{if .Rev}}
+<div class="row g-3 mb-4">
+  <div class="col-lg-6"><h2 class="h6">{{t "history.revision_source" "rev" (print .Rev)}}</h2><pre class="app-scroll-pane border rounded p-3 small">{{.Source}}</pre></div>
+  <div class="col-lg-6"><h2 class="h6">{{t "history.changes_from" "rev" (print .Rev)}}</h2><pre class="app-scroll-pane border rounded p-3 small tmp-diff">{{range .Diff}}<span class="diff-{{.Kind}}">{{if eq .Kind "add"}}+{{else if eq .Kind "del"}}-{{else}} {{end}} {{.Text}}</span>{{end}}</pre>
+  <form method="post" action="{{.Action}}" data-confirm="{{t "history.restore_confirm"}}"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="revision" value="{{.Rev}}"><input type="hidden" name="expected_revision" value="{{.Entry.CurrentRevision}}"><button class="tmp-btn mt-2">{{template "icon" "history"}} {{t "history.restore"}}</button></form></div>
+</div>
+{{end}}
+<div class="card"><table class="table align-middle mb-0">
+<thead><tr><th>{{t "history.revision"}}</th><th>{{t "history.when"}}</th><th>{{t "history.who"}}</th><th>{{t "history.operation"}}</th><th>{{t "history.summary"}}</th><th></th></tr></thead>
+<tbody>
+{{range .Items}}<tr>
+  <td>{{.Revision}}</td>
+  <td class="small text-nowrap">{{date .CreatedAt}}</td>
+  <td>{{.Actor}}{{if .ShareLabel}} <span class="badge text-bg-secondary">{{.ShareLabel}}</span>{{end}}{{if .GrantID}} <span class="small tmp-muted">{{t "history.link_id" "id" (print .GrantID)}}</span>{{end}}{{if .AuthorName}}<div class="small tmp-muted">“{{.AuthorName}}” ({{t "history.unverified"}})</div>{{end}}</td>
+  <td><span class="badge text-bg-secondary">{{.Operation}}</span>{{if .PriorPath}}<div class="small tmp-muted">{{t "history.from" "path" .PriorPath}}</div>{{end}}</td>
+  <td class="small">{{.Summary}}</td>
+  <td class="text-end text-nowrap">
+    {{if ne $.Entry.Kind "directory"}}<a class="tmp-btn tmp-btn-secondary tmp-btn-sm" href="{{$.Action}}?rev={{.Revision}}">{{t "history.compare"}}</a>
+    <form method="post" action="{{$.Action}}" class="d-inline" data-confirm="{{t "history.restore_confirm"}}"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="revision" value="{{.Revision}}"><input type="hidden" name="expected_revision" value="{{$.Entry.CurrentRevision}}"><button class="tmp-btn tmp-btn-secondary tmp-btn-sm">{{template "icon" "history"}} {{t "history.restore"}}</button></form>{{end}}
+  </td>
+</tr>{{end}}
+</tbody></table></div>
+{{if .Next}}<a class="tmp-btn tmp-btn-secondary mt-2" href="{{.Action}}?cursor={{.Next}}">{{t "common.more"}}</a>{{end}}
+{{end}}

@@ -1,0 +1,28 @@
+{{define "content"}}
+{{if .Site.Breadcrumbs}}<nav class="tmp-crumbs" aria-label="{{t "site.breadcrumb"}}"><ol>{{range .Site.Breadcrumbs}}<li>{{if .Last}}<span aria-current="page">{{.Title}}</span>{{else}}<a href="{{.URL}}">{{.Title}}</a>{{end}}</li>{{end}}</ol></nav>{{end}}
+{{if .Saved}}<div class="tmp-callout tmp-callout-tip" role="status"><div class="tmp-callout-body">{{t "editor.saved" "rev" .Saved}}</div></div>{{end}}
+<article class="tmp-article">
+  <header class="tmp-article-header">
+    <h1>{{.Site.Page.Title}}</h1>
+    {{if .Site.Page.Description}}<p class="tmp-lead">{{.Site.Page.Description}}</p>{{end}}
+    <div class="tmp-meta">
+      {{range .Site.Page.Tags}}<span class="tmp-tag">{{.}}</span>{{end}}
+      <span>{{t "content.revision"}} {{.Site.Page.Revision}} · {{.Site.Page.UpdatedAt}}</span>
+      <a href="{{.Site.Page.RawURL}}">{{t "site.raw"}}</a> · <a href="{{.Site.Page.JSONURL}}">{{t "site.json"}}</a>
+    </div>
+    {{if .Site.IsOwner}}
+    <div class="tmp-actions">
+      <a class="tmp-btn tmp-btn-secondary" href="/edit{{.Site.Entry.HTMLPath}}">{{template "icon" "edit"}} {{t "content.edit"}}</a>
+      <a class="tmp-btn tmp-btn-secondary" href="/history{{.Site.Entry.HTMLPath}}">{{template "icon" "history"}} {{t "content.history"}}</a>
+      <a class="tmp-btn tmp-btn-secondary" href="/share{{.Site.Entry.HTMLPath}}">{{template "icon" "share"}} {{t "content.share"}}</a>
+      <button class="tmp-btn tmp-btn-secondary" type="button" data-open-dialog="tmp-move">{{template "icon" "move"}} {{t "content.move"}}</button>
+      <button class="tmp-btn tmp-btn-secondary" type="button" data-copy-btn="{{.Origin}}{{.OrgPrefix}}{{.Site.Entry.HTMLPath}}">{{template "icon" "copy"}} {{t "content.copy_link"}}</button>
+      <form method="post" action="/delete{{.Site.Entry.HTMLPath}}" data-confirm="{{t "content.delete_confirm"}}" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="expected_revision" value="{{.Site.Entry.CurrentRevision}}"><button class="tmp-btn tmp-btn-danger">{{template "icon" "trash"}} {{t "content.delete"}}</button></form>
+    </div>
+    {{template "partials/_move_dialog.html" (dict "CSRF" .CSRF "Entry" .Site.Entry "Action" (print "/move" .Site.Entry.HTMLPath))}}
+    {{end}}
+  </header>
+  {{if and .Site.IsOwner .Site.Page.Warnings}}<div class="tmp-callout tmp-callout-warning" role="note"><div class="tmp-callout-title">{{t "site.warnings_owner"}}</div><div class="tmp-callout-body"><ul>{{range .Site.Page.Warnings}}<li>{{.}}</li>{{end}}</ul></div></div>{{end}}
+  <div class="tmp-content">{{.Site.Page.HTML}}</div>
+</article>
+{{end}}

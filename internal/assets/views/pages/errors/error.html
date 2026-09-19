@@ -1,0 +1,11 @@
+{{define "content"}}
+<div class="card shadow-sm">
+  <div class="card-body p-4">
+    <div class="text-secondary small">{{.Status}}</div>
+    <h1 class="h3">{{.Title}}</h1>
+    {{if .Detail}}<p class="mb-3">{{.Detail}}</p>{{end}}
+    <p class="small text-secondary mb-3">{{t "error.request_id"}}: <code>{{.RequestID}}</code></p>
+    <a href="/" class="btn btn-outline-secondary btn-sm">{{t "error.back"}}</a>
+  </div>
+</div>
+{{end}}

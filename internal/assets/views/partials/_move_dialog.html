@@ -1,0 +1,15 @@
+{{define "partials/_move_dialog.html"}}
+<dialog class="tmp-dialog" id="tmp-move" aria-labelledby="tmp-move-title">
+  <form method="post" action="{{.Action}}" class="tmp-dialog-body">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="expected_revision" value="{{.Entry.CurrentRevision}}">
+    <h2 id="tmp-move-title" class="tmp-dialog-title">{{t "content.move"}}</h2>
+    <label class="tmp-label" for="tmp-move-to">{{t "move.to"}}</label>
+    <input class="tmp-input" id="tmp-move-to" name="to" value="{{.Entry.Path}}" required autocomplete="off" spellcheck="false">
+    <p class="tmp-dialog-text">{{t "move.help"}}</p>
+    <div class="tmp-dialog-actions">
+      <button type="button" class="tmp-btn tmp-btn-secondary" data-close-dialog>{{t "common.cancel"}}</button>
+      <button class="tmp-btn">{{template "icon" "move"}} {{t "content.move"}}</button>
+    </div>
+  </form>
+</dialog>
+{{end}}

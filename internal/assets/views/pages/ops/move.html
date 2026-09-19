@@ -1,0 +1,9 @@
+{{define "content"}}
+<h1 class="tmp-h1-small">{{.Site.Title}}</h1>
+{{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+<form method="post" action="{{.Action}}" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="expected_revision" value="{{.Entry.CurrentRevision}}">
+  <div class="col-md-8"><label class="form-label" for="to">{{t "move.to"}}</label><input class="form-control font-monospace" id="to" name="to" value="{{.Entry.Path}}" required><div class="form-text">{{t "move.help"}}</div></div>
+  <div class="col-12"><button class="tmp-btn">{{t "content.move"}}</button> <a class="tmp-btn tmp-btn-secondary" href="{{.Entry.HTMLPath}}">{{t "editor.cancel"}}</a></div>
+</form>
+{{end}}

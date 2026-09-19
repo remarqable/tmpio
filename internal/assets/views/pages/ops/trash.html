@@ -1,0 +1,11 @@
+{{define "content"}}
+<h1 class="tmp-h1-small">{{template "icon" "trash"}} {{t "trash.title"}}</h1>
+<p class="tmp-muted small">{{t "trash.note"}}</p>
+{{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+{{if .Rows}}
+<div class="card"><table class="table align-middle mb-0"><thead><tr><th>{{t "trash.col_path"}}</th><th>{{t "trash.col_kind"}}</th><th>{{t "trash.col_deleted"}}</th><th></th></tr></thead><tbody>
+{{range .Rows}}<tr><td>{{.Path}}</td><td>{{t (print "content.kind." .Kind)}}</td><td class="small">{{dateptr .DeletedAt}}</td>
+<td class="text-end">{{if ne .Kind "directory"}}<form method="post" action="/trash" class="d-inline"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="path" value="{{.Path}}"><input type="hidden" name="revision" value="{{.CurrentRevision}}"><button class="tmp-btn tmp-btn-secondary tmp-btn-sm">{{template "icon" "history"}} {{t "trash.restore"}}</button></form>{{end}}</td></tr>{{end}}
+</tbody></table></div>
+{{else}}<p class="tmp-muted">{{t "trash.empty"}}</p>{{end}}
+{{end}}

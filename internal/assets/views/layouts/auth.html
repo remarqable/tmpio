@@ -1,0 +1,24 @@
+{{define "layout/auth"}}<!DOCTYPE html>
+<html lang="{{.Lang}}" data-bs-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{if .Title}}{{.Title}} · {{end}}{{t "app.name"}} — {{t "app.tagline"}}</title>
+<link rel="stylesheet" href="{{asset "css/bootstrap.min.css"}}">
+<link rel="stylesheet" href="{{asset "css/app.css"}}">
+</head>
+<body class="bg-body d-flex flex-column min-vh-100">
+<header class="border-bottom bg-body-tertiary">
+  <div class="container d-flex align-items-center justify-content-between py-3">
+    <a href="/" class="text-decoration-none fw-bold fs-4 text-body">tmp<span class="text-secondary">.</span></a>
+    <span class="text-secondary small">{{t "app.tagline"}}</span>
+  </div>
+</header>
+<main class="container py-5 flex-grow-1">
+{{template "content" .}}
+</main>
+<footer class="border-top py-3 bg-body-tertiary">
+  <div class="container small text-secondary">{{t "site.private"}} · <a class="link-secondary" href="/robots.txt">{{t "landing.foot.robots"}}</a></div>
+</footer>
+</body>
+</html>{{end}}

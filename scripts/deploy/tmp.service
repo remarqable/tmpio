@@ -1,0 +1,23 @@
+[Unit]
+Description=tmp - a publishing layer for your AI
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=tmp
+Group=tmp
+EnvironmentFile=/etc/tmp/tmp.env
+ExecStart=/opt/tmp/bin/api
+Restart=always
+RestartSec=2
+WorkingDirectory=/opt/tmp
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadWritePaths=/opt/tmp
+MemoryMax=400M
+LimitNOFILE=65536
+
+[Install]
+WantedBy=multi-user.target

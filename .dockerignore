@@ -1,0 +1,10 @@
+.git
+.github
+bin/
+data/
+docs/screenshots/
+blueprint/
+config/local.env
+config/deploy.env
+*.dump
+*.dump.age

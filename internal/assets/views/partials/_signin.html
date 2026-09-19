@@ -1,0 +1,35 @@
+{{define "partials/_signin.html"}}
+<div class="card shadow-sm">
+  <div class="card-body p-4">
+    {{if not .SignupsOpen}}<p class="text-secondary small mb-3">{{t "landing.signups_closed_signin"}} <a href="/#notify">{{t "landing.notify.cta"}}</a></p>{{end}}
+    {{if .SignInFailed}}<div class="alert alert-danger py-2 small">{{t "landing.signin_failed"}}</div>{{end}}
+    {{if .GoogleEnabled}}
+      <a class="btn btn-dark btn-lg w-100" href="/auth/google{{if or .Return .OAuthRequest}}?{{if .Return}}return={{.Return}}{{end}}{{if .OAuthRequest}}{{if .Return}}&amp;{{end}}oauth={{.OAuthRequest}}{{end}}{{end}}">{{t "landing.cta"}}</a>
+    {{else if not .LocalAuth}}
+      <p class="text-secondary small mb-2">{{t "landing.google_unavailable"}}</p>
+    {{end}}
+    {{if .LocalAuth}}
+      {{if .GoogleEnabled}}<hr>{{end}}
+      <form method="post" action="/auth/local" class="vstack gap-2">
+        <input type="hidden" name="return" value="{{.Return}}">
+        {{if .OAuthRequest}}<input type="hidden" name="oauth" value="{{.OAuthRequest}}">{{end}}
+        <div><label class="form-label small" for="local-email">{{t "landing.local_email"}}</label><input class="form-control" id="local-email" name="email" type="email" required autocomplete="username" placeholder="you@example.com"></div>
+        <div><label class="form-label small" for="local-password">{{t "landing.local_password"}}</label><input class="form-control" id="local-password" name="password" type="password" required autocomplete="current-password"></div>
+        <button class="btn btn-dark btn-lg w-100">{{t "landing.local_cta"}}</button>
+      </form>
+      <p class="form-text mt-2">{{t "landing.local_note"}}</p>
+    {{end}}
+    {{if .DevBypass}}
+      <hr>
+      <form method="post" action="/auth/dev" class="row g-2 align-items-end">
+        <input type="hidden" name="return" value="{{.Return}}">
+        {{if .OAuthRequest}}<input type="hidden" name="oauth" value="{{.OAuthRequest}}">{{end}}
+        <div class="col-sm-5"><label class="form-label small" for="dev-email">{{t "landing.dev_email"}}</label><input class="form-control" id="dev-email" name="email" type="email" required placeholder="you@example.com"></div>
+        <div class="col-sm-4"><label class="form-label small" for="dev-name">{{t "landing.dev_name"}}</label><input class="form-control" id="dev-name" name="name" type="text" placeholder="{{t "common.optional"}}"></div>
+        <div class="col-sm-3"><button class="btn btn-outline-secondary w-100">{{t "landing.dev_cta"}}</button></div>
+      </form>
+      <p class="form-text mt-2">{{t "landing.dev_note"}}</p>
+    {{end}}
+  </div>
+</div>
+{{end}}

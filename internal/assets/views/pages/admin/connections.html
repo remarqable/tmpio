@@ -1,0 +1,38 @@
+{{define "content"}}
+<h1 class="tmp-h1-small">{{.Site.Title}}</h1>
+{{if .Error}}<div class="alert alert-danger">{{.Error}}</div>{{end}}
+<div class="row g-3">
+<div class="col-lg-6">
+  <div class="card mb-3"><div class="card-body">
+    <h2 class="h6">{{t "connections.mcp_url"}}</h2>
+    <div class="input-group mb-2"><input class="form-control font-monospace" readonly value="{{.MCPURL}}"><button class="tmp-btn tmp-btn-secondary" type="button" data-copy-btn="{{.MCPURL}}">{{template "icon" "copy"}} {{t "common.copy"}}</button></div>
+    <h3 class="h6 mt-3">{{t "connections.howto"}}</h3>
+    <ol class="small"><li>{{t "connections.howto_claude"}}</li><li>{{t "connections.howto_chatgpt"}}</li><li>{{t "connections.howto_code" "url" .MCPURL}}</li></ol>
+    <p class="small tmp-muted mb-0">{{t "connections.howto_note"}}</p>
+  </div></div>
+  <div class="card"><div class="card-header ">{{t "connections.active"}}</div>
+  {{if .Connections}}<ul class="list-group list-group-flush">{{range .Connections}}<li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+    <div><strong>{{.ClientName}}</strong> <span class="small tmp-muted">{{join .Scopes " "}}</span><div class="small tmp-muted">{{t "connections.created"}} {{date .CreatedAt}}{{if .LastUsedAt}} · {{t "connections.last_used"}} {{dateptr .LastUsedAt}}{{end}}</div></div>
+    {{if .RevokedAt}}<span class="badge text-bg-secondary">{{t "connections.revoked"}}</span>{{else}}<form method="post" action="/admin/connections/revoke" data-confirm="{{t "connections.revoke_confirm"}}"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button class="tmp-btn tmp-btn-danger tmp-btn-sm">{{template "icon" "x"}} {{t "connections.revoke"}}</button></form>{{end}}
+  </li>{{end}}</ul>{{else}}<div class="card-body tmp-muted">{{t "connections.none"}}</div>{{end}}
+  </div>
+</div>
+<div class="col-lg-6">
+  <div class="card"><div class="card-body">
+    <h2 class="h6">{{t "connections.api_tokens"}}</h2>
+    <p class="small tmp-muted">{{t "connections.api_tokens_help"}}</p>
+    {{if .NewToken}}<div class="alert alert-warning"><div class="small">{{t "connections.token_created"}}</div><div class="input-group mt-1"><input class="form-control font-monospace" readonly value="{{.NewToken}}"><button class="tmp-btn tmp-btn-secondary" type="button" data-copy-btn="{{.NewToken}}">{{template "icon" "copy"}} {{t "content.copy_link"}}</button></div></div>{{end}}
+    <form method="post" action="/admin/tokens" class="row g-2 align-items-end mb-3">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <div class="col-sm-6"><label class="form-label small" for="tok-name">{{t "connections.token_name"}}</label><input class="form-control" id="tok-name" name="name" required maxlength="80"></div>
+      <div class="col-sm-6"><div class="small">{{t "connections.scopes"}}</div>{{range .Scopes}}<div class="form-check form-check-inline"><input class="form-check-input" type="checkbox" name="scopes" value="{{.}}" id="sc-{{.}}" {{if eq . "content:read"}}checked{{end}}><label class="form-check-label small" for="sc-{{.}}">{{.}}</label></div>{{end}}</div>
+      <div class="col-12"><button class="tmp-btn">{{template "icon" "plus"}} {{t "connections.create_token"}}</button></div>
+    </form>
+    {{if .Tokens}}<ul class="list-group list-group-flush">{{range .Tokens}}<li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+      <div><strong>{{.Name}}</strong> <span class="small tmp-muted">{{join .Scopes " "}}</span><div class="small tmp-muted">{{t "connections.expires" "date" (date .ExpiresAt)}}</div></div>
+      {{if .RevokedAt}}<span class="badge text-bg-secondary">{{t "connections.revoked"}}</span>{{else}}<form method="post" action="/admin/tokens/revoke"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button class="tmp-btn tmp-btn-danger tmp-btn-sm">{{template "icon" "x"}} {{t "connections.revoke"}}</button></form>{{end}}
+    </li>{{end}}</ul>{{end}}
+  </div></div>
+</div>
+</div>
+{{end}}

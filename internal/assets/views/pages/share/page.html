@@ -1,0 +1,15 @@
+{{define "content"}}
+<article class="tmp-article">
+  <header class="tmp-article-header">
+    <h1>{{.Site.Page.Title}}</h1>
+    {{if .Site.Page.Description}}<p class="tmp-lead">{{.Site.Page.Description}}</p>{{end}}
+    <div class="tmp-meta">
+      {{range .Site.Page.Tags}}<span class="tmp-tag">{{.}}</span>{{end}}
+      <span>{{t "content.revision"}} {{.Site.Page.Revision}} · {{.Site.Page.UpdatedAt}}</span>
+      <a class="tmp-btn" href="{{.Base}}/edit">{{t "shared.edit"}}</a>
+      <a href="{{.Base}}/raw">{{t "site.raw"}}</a> · <a href="{{.Base}}/json">{{t "site.json"}}</a> · <a href="{{.Base}}/instructions">{{t "shared.instructions"}}</a>
+    </div>
+  </header>
+  <div class="tmp-content">{{.Site.Page.HTML}}</div>
+</article>
+{{end}}

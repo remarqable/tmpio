@@ -1,0 +1,33 @@
+{{define "content"}}
+<h1 class="tmp-h1-small">{{t "new.title" "dir" .Dir}}</h1>
+{{if .Error}}<div class="alert alert-danger" role="alert">{{.Error}}</div>{{end}}
+{{with .Placement}}<div class="tmp-placement" role="status">{{template "icon" "sparkle"}}<div><strong>{{t "quick.suggested"}}</strong> <code>{{.Path}}</code>{{if .NewDirectory}} <span class="tmp-badge">{{t "quick.new_folder"}}</span>{{end}}{{if .Exists}} <span class="tmp-badge">{{t "quick.exists"}}</span>{{end}}<div class="tmp-muted small">{{.Reason}}{{if eq .Source "heuristic"}} {{if $.AIEnabled}}{{t "quick.heuristic_fallback"}}{{else}}{{t "quick.heuristic"}}{{end}}{{end}}{{if .Alternatives}} · {{t "quick.alternatives"}}: {{range $i, $a := .Alternatives}}{{if $i}}, {{end}}<code>{{$a}}</code>{{end}}{{end}}</div></div></div>{{end}}
+{{if .FieldError}}<div class="alert alert-danger" role="alert"><strong>{{.FieldError.Message}}</strong>{{if .FieldError.FieldErrors}}<ul class="mb-0 mt-2">{{range .FieldError.FieldErrors}}<li>{{if .Line}}{{t "editor.line" "n" (print .Line)}}: {{end}}{{.Message}}</li>{{end}}</ul>{{end}}<div class="small mt-1">{{t "editor.unsaved_kept"}}</div></div>{{end}}
+<ul class="nav nav-tabs mb-3" role="tablist">
+  <li class="nav-item"><a class="nav-link {{if or (not .Kind) (eq .Kind "page")}}active{{end}}" href="?">{{template "icon" "file-plus"}} {{t "content.new_page"}}</a></li>
+  <li class="nav-item"><a class="nav-link {{if eq .Kind "folder"}}active{{end}}" href="?kind=folder">{{template "icon" "folder-plus"}} {{t "content.new_folder"}}</a></li>
+  <li class="nav-item"><a class="nav-link {{if eq .Kind "image"}}active{{end}}" href="?kind=image">{{template "icon" "upload"}} {{t "content.upload"}}</a></li>
+</ul>
+{{if eq .Kind "folder"}}
+<form method="post" action="{{.Action}}" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="kind" value="folder">
+  <div class="col-md-6"><label class="form-label" for="name">{{t "new.folder_name"}}</label><div class="input-group"><span class="input-group-text">{{if eq .Dir "/"}}/{{else}}{{.Dir}}/{{end}}</span><input class="form-control" id="name" name="name" required pattern="[a-z0-9_-]+" placeholder="research"></div><div class="form-text">{{t "new.name_help"}}</div></div>
+  <div class="col-12"><button class="tmp-btn">{{template "icon" "folder-plus"}} {{t "content.new_folder"}}</button> <a class="tmp-btn tmp-btn-secondary" href="{{if eq .Dir "/"}}/{{else}}{{.Dir}}/{{end}}">{{t "editor.cancel"}}</a></div>
+</form>
+{{else if eq .Kind "image"}}
+<form method="post" action="{{.Action}}" enctype="multipart/form-data" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="kind" value="image">
+  <div class="col-md-6"><label class="form-label" for="file">{{t "content.upload_help"}}</label><input class="form-control" id="file" type="file" name="file" accept="image/png,image/jpeg,image/webp,application/pdf" required></div>
+  <div class="col-md-6"><label class="form-label" for="name">{{t "content.upload_name"}}</label><div class="input-group"><span class="input-group-text">{{if eq .Dir "/"}}/{{else}}{{.Dir}}/{{end}}</span><input class="form-control" id="name" name="name" placeholder="diagram.png"></div></div>
+  <div class="col-12"><button class="tmp-btn">{{template "icon" "upload"}} {{t "content.upload"}}</button> <a class="tmp-btn tmp-btn-secondary" href="{{if eq .Dir "/"}}/{{else}}{{.Dir}}/{{end}}">{{t "editor.cancel"}}</a></div>
+</form>
+{{else}}
+<form method="post" action="{{.Action}}" class="row g-3">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="kind" value="page"><input type="hidden" name="request_id" value="{{.RequestID}}">
+  <div class="col-12 col-xl-8"><label class="form-label" for="name">{{t "new.page_name"}}</label><div class="input-group"><span class="input-group-text">{{if eq .Dir "/"}}/{{else}}{{.Dir}}/{{end}}</span><input class="form-control" id="name" name="name" required pattern="[a-z0-9_-]+(\.md)?" placeholder="circle" value="{{.Name}}" autofocus><span class="input-group-text" title="{{t "new.ext_hint"}}">.md</span></div><div class="form-text">{{t "new.name_help"}}</div></div>
+    <div class="col-lg-6"><div class="tmp-pane-label"><label class="form-label mb-0" for="content">{{t "editor.source"}}</label></div><textarea class="form-control font-monospace tmp-editor-area" id="content" name="content" hx-post="/preview" hx-trigger="input changed delay:500ms, load" hx-include="#content,#name" hx-headers='{"X-CSRF-Token":"{{.CSRF}}"}' hx-target="#preview" hx-swap="innerHTML" rows="20" spellcheck="false">{{.Content}}</textarea></div>
+  <div class="col-lg-6"><div class="tmp-pane-label"><span class="form-label mb-0">{{t "editor.preview"}}</span><button class="tmp-btn tmp-btn-secondary tmp-btn-sm" type="button" hx-post="/preview" hx-include="#content,#name" hx-headers='{"X-CSRF-Token":"{{.CSRF}}"}' hx-target="#preview" hx-swap="innerHTML">{{t "editor.preview_refresh"}}</button></div><div id="preview" class="tmp-preview tmp-editor-area" aria-live="polite"><span class="tmp-muted">{{t "editor.preview_empty"}}</span></div></div>
+  <div class="col-12 d-flex gap-2 align-items-center"><button class="tmp-btn">{{t "new.create"}}</button> <a class="tmp-btn tmp-btn-secondary" href="{{if eq .Dir "/"}}/{{else}}{{.Dir}}/{{end}}">{{t "editor.cancel"}}</a><a class="tmp-btn tmp-btn-secondary ms-auto" href="/format">{{template "icon" "info"}} {{t "editor.format_help"}}</a></div>
+</form>
+{{end}}
+{{end}}

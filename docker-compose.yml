@@ -1,0 +1,53 @@
+# tmp, self-hosted. Two containers: the server and its database.
+#
+#   curl -O https://raw.githubusercontent.com/remarqable/tmpio/main/docker-compose.yml
+#   curl -o .env https://raw.githubusercontent.com/remarqable/tmpio/main/config/docker.env.example
+#   $EDITOR .env          # at minimum: APP_ORIGIN, SESSION_SECRET, OWNER_EMAIL, OWNER_PASSWORD
+#   docker compose up -d
+#
+# Updating is `docker compose pull && docker compose up -d`. The server applies
+# its own migrations at startup. Back up first: docs/DOCKER.md.
+services:
+  app:
+    # Pin the major version: patches and features arrive, breaking changes do not.
+    image: ghcr.io/remarqable/tmpio:1
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # The database is reachable only on this private network, so the
+      # connection is plaintext and the server allows it for private addresses.
+      # The app creates this NOBYPASSRLS role on first boot and migrates itself.
+      DATABASE_URL: postgres://app_user:${APP_USER_PASSWORD:?set APP_USER_PASSWORD in .env}@db:5432/tmp?sslmode=disable
+      DATABASE_OWNER_URL: postgres://app_owner:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@db:5432/tmp?sslmode=disable
+      AUTO_MIGRATE: "1"
+      PORT: "8000"
+      # Caddy runs on the host and reaches the container through the bridge, so
+      # the proxy arrives as the bridge gateway rather than 127.0.0.1. Without
+      # this every caller would look like the gateway and per-IP rate limits
+      # would apply to everyone at once.
+      TRUSTED_PROXIES: "172.16.0.0/12"
+    ports:
+      # Bound to loopback: put a reverse proxy in front for TLS. Change to
+      # "8000:8000" only if something else already terminates TLS for you.
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app_owner
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: tmp
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_owner -d tmp"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  pgdata:

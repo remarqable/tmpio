@@ -1,0 +1,24 @@
+{{define "content"}}
+<div class="row justify-content-center"><div class="col-lg-6">
+<div class="card shadow-sm"><div class="card-body p-4">
+<h1 class="h4 mb-3">{{t "consent.title" "client" .Client.Name}}</h1>
+<p>{{t "consent.desc" "client" .Client.Name "site" .SiteName}} <span class="text-secondary">(<code>o:{{.OrgCode}}</code>)</span></p>
+{{if .Client.IsDynamic}}<div class="alert alert-secondary small">{{t "consent.dynamic" "id" .Client.ID}} {{range .Client.RedirectURIs}}<code>{{.}}</code> {{end}}</div>{{end}}
+<h2 class="h6 mt-4">{{t "consent.scopes"}}</h2>
+<ul>{{range .Scopes}}<li><code>{{.}}</code> — {{t (print "consent.scope." .)}}</li>{{end}}</ul>
+<div class="alert alert-warning small">{{t "consent.notice"}}</div>
+<form method="post" action="/oauth/authorize" class="d-flex gap-2">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <input type="hidden" name="response_type" value="{{.Request.ResponseType}}">
+  <input type="hidden" name="client_id" value="{{.Request.ClientID}}">
+  <input type="hidden" name="redirect_uri" value="{{.Request.RedirectURI}}">
+  <input type="hidden" name="scope" value="{{.Request.Scope}}">
+  <input type="hidden" name="state" value="{{.Request.State}}">
+  <input type="hidden" name="code_challenge" value="{{.Request.Challenge}}">
+  <input type="hidden" name="code_challenge_method" value="{{.Request.Method}}">
+  <input type="hidden" name="resource" value="{{.Request.Resource}}">
+  <button class="btn btn-dark" name="decision" value="allow">{{t "consent.allow"}}</button>
+  <button class="btn btn-outline-secondary" name="decision" value="deny">{{t "consent.deny"}}</button>
+</form>
+</div></div></div></div>
+{{end}}

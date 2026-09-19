@@ -1,0 +1,154 @@
+// Command api is the tmp application server: one binary serving the browser
+// UI, REST API, secret links, OAuth authorization server and MCP endpoint.
+package main
+
+import (
+	"context"
+	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/remarqable/tmpio/internal/assets"
+	"github.com/remarqable/tmpio/internal/controllers"
+	tmpmcp "github.com/remarqable/tmpio/internal/mcp"
+	"github.com/remarqable/tmpio/internal/models"
+	"github.com/remarqable/tmpio/internal/platform/ai"
+	"github.com/remarqable/tmpio/internal/platform/auth"
+	"github.com/remarqable/tmpio/internal/platform/config"
+	"github.com/remarqable/tmpio/internal/platform/db"
+	"github.com/remarqable/tmpio/internal/platform/i18n"
+	"github.com/remarqable/tmpio/internal/platform/logger"
+	"github.com/remarqable/tmpio/migrations"
+)
+
+func main() {
+	// `tmpio healthcheck` asks the running server whether it is ready. The
+	// container image has no shell and no curl, so the binary answers for both.
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		os.Exit(healthcheck())
+	}
+
+	logger.Init(os.Getenv("APP_ENV"))
+	log := logger.Get()
+
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatal().Err(err).Msg("config")
+	}
+	if cfg.IsProd() {
+		gin.SetMode(gin.ReleaseMode)
+	} else {
+		gin.SetMode(gin.ReleaseMode)
+		assets.SetDev(os.Getenv("TEMPLATE_DEV") == "1")
+	}
+
+	// With AUTO_MIGRATE the server brings the schema up to date itself, as the
+	// owner role, before it opens its own restricted handle. That is what makes
+	// a container update one command: pull the image and restart. Where an
+	// operator runs `make migrate` by hand, leave it off.
+	if cfg.AutoMigrate {
+		ctx, cancel := context.WithTimeout(context.Background(), 6*time.Minute)
+		// The runtime role first: its default privileges have to exist before
+		// the migrations create the tables they apply to.
+		if err := db.EnsureRuntimeRole(ctx, cfg.DatabaseOwnerURL, cfg.DatabaseURL); err != nil {
+			cancel()
+			log.Fatal().Err(err).Msg("runtime role")
+		}
+		version, err := db.MigrateUp(ctx, cfg.DatabaseOwnerURL, migrations.FS)
+		cancel()
+		if err != nil {
+			log.Fatal().Err(err).Msg("migrate")
+		}
+		log.Info().Int64("version", version).Msg("schema up to date")
+	}
+
+	database, err := db.Connect(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatal().Err(err).Msg("database")
+	}
+	db.SetDB(database)
+	if sqlDB, err := database.DB(); err == nil {
+		defer sqlDB.Close()
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := models.SyncOAuthClients(ctx, cfg.OAuthClients); err != nil {
+		cancel()
+		log.Fatal().Err(err).Msg("oauth clients (did you run migrations?)")
+	}
+	cancel()
+
+	// The self-hosted owner account. Creating it here means a fresh instance is
+	// usable the moment it boots, with no external identity provider.
+	if cfg.LocalAuth {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		created, err := models.EnsureLocalOwner(ctx, cfg.OwnerEmail, cfg.OwnerPassword, models.DefaultSiteConfigYAML, models.DefaultIndexMarkdown)
+		cancel()
+		if err != nil {
+			log.Fatal().Err(err).Msg("owner account")
+		}
+		log.Info().Str("email", cfg.OwnerEmail).Bool("created", created).Msg("local owner account ready")
+	}
+
+	if err := i18n.Preload("en"); err != nil {
+		log.Fatal().Err(err).Msg("i18n")
+	}
+	tmpl, err := assets.Templates(controllers.FuncMap())
+	if err != nil {
+		log.Fatal().Err(err).Msg("templates")
+	}
+	ops := &models.Ops{Quotas: cfg.Quotas, CursorKey: cfg.SessionSecret, AIMaxCallsPerHour: cfg.AI.MaxCallsPerHour}
+	if client := ai.New(cfg.AI); client != nil {
+		ops.AI = client
+		log.Info().Str("model", cfg.AI.Model).Msg("ai placement enabled")
+	} else {
+		log.Info().Msg("ai placement disabled (no ANTHROPIC_API_KEY); heuristic filing only")
+	}
+	deps := &controllers.Deps{Cfg: cfg, Ops: ops, Google: auth.NewGoogle(cfg), Tmpl: tmpl}
+	mcpServer := tmpmcp.New(cfg, ops)
+
+	srv := &http.Server{
+		Addr:              "0.0.0.0:" + cfg.Port,
+		Handler:           deps.SetupRouter(mcpServer.Handler()),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       60 * time.Second,
+		WriteTimeout:      120 * time.Second,
+		IdleTimeout:       120 * time.Second,
+		MaxHeaderBytes:    64 << 10,
+	}
+	go func() {
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal().Err(err).Msg("listen")
+		}
+	}()
+	log.Info().Str("addr", srv.Addr).Str("origin", cfg.AppOrigin).Bool("google", cfg.GoogleEnabled()).Bool("dev_bypass", cfg.DevLoginBypass).Msg("tmp listening")
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+	<-stop
+	shutdown, cancel2 := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel2()
+	_ = srv.Shutdown(shutdown)
+}
+
+// healthcheck returns 0 when the local server reports ready.
+func healthcheck() int {
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8000"
+	}
+	client := &http.Client{Timeout: 5 * time.Second}
+	resp, err := client.Get("http://127.0.0.1:" + port + "/readyz")
+	if err != nil {
+		return 1
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return 1
+	}
+	return 0
+}

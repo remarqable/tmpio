@@ -1,0 +1,33 @@
+{{define "content"}}
+<article class="tmp-article tmp-article-wide">
+  <header class="tmp-article-header"><h1>{{t "shared.editing"}}: {{.Site.Page.Title}}</h1><p class="tmp-lead">{{t "shared.notice"}}</p></header>
+  {{if .Saved}}<div class="tmp-callout tmp-callout-tip" role="status"><div class="tmp-callout-body">{{t "shared.saved" "rev" .Saved}} <a href="{{.Base}}">{{t "content.view"}}</a></div></div>{{end}}
+  {{if .Error}}<div class="tmp-callout {{if .Conflict}}tmp-callout-warning{{else}}tmp-callout-important{{end}}" role="alert"><div class="tmp-callout-body">
+    {{if .Conflict}}{{t "editor.conflict" "rev" (print .Conflict)}}{{else}}<strong>{{t "editor.invalid"}}</strong> {{.Error.Message}}{{end}}
+    {{if .Error.FieldErrors}}<ul>{{range .Error.FieldErrors}}<li>{{if .Line}}{{t "editor.line" "n" (print .Line)}}: {{end}}{{.Message}}</li>{{end}}</ul>{{end}}
+    <div>{{t "editor.unsaved_kept"}}</div></div></div>{{end}}
+  <form method="post" action="{{.Base}}/edit" class="tmp-editor" data-share-editor data-draft-text="{{t "shared.draft_exists"}}" data-draft-restore="{{t "shared.draft_restore"}}">
+    <input type="hidden" name="nonce" value="{{.Nonce}}">
+    <input type="hidden" name="expected_revision" value="{{.Expected}}">
+    <input type="hidden" name="request_id" value="{{.RequestID}}">
+    <div class="tmp-editor-grid">
+      <div>
+        <label for="content">{{t "editor.source"}}</label>
+        <textarea id="content" name="content" rows="24" spellcheck="false" hx-post="{{.Base}}/preview" hx-trigger="input changed delay:500ms, load" hx-include="#content" hx-target="#preview" hx-swap="innerHTML">{{.Content}}</textarea>
+      </div>
+      <div>
+        <div class="tmp-editor-row"><span>{{t "editor.preview"}}</span><button class="tmp-btn tmp-btn-secondary" type="button" hx-post="{{.Base}}/preview" hx-include="#content" hx-target="#preview" hx-swap="innerHTML">{{t "editor.preview_refresh"}}</button></div>
+        <div id="preview" class="tmp-preview" aria-live="polite"><span class="tmp-muted">{{t "editor.preview_empty"}}</span></div>
+      </div>
+    </div>
+    <div class="tmp-editor-row">
+      <label for="author_name">{{t "shared.name"}}</label><input id="author_name" name="author_name" maxlength="80" value="{{.AuthorName}}">
+      <label for="summary">{{t "editor.summary"}}</label><input id="summary" name="summary" maxlength="500" value="{{.Summary}}">
+    </div>
+    <div class="tmp-editor-row">
+      <button class="tmp-btn" type="submit">{{t "editor.save"}}</button>
+      <a class="tmp-btn tmp-btn-secondary" href="{{.Base}}">{{t "editor.cancel"}}</a>
+    </div>
+  </form>
+</article>
+{{end}}

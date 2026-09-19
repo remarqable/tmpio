@@ -1,0 +1,62 @@
+{{define "content"}}
+<h1 class="tmp-h1-small">{{.Site.Title}}</h1>
+<div class="row g-3">
+<div class="col-lg-6">
+<div class="card"><div class="card-body">
+<h2 class="h6">{{t "format.page_source"}}</h2>
+<pre class="small bg-body-tertiary p-3 rounded">---
+title: Circle
+description: Research on Circle and its community platform
+tags: [community, competitor]
+order: 20
+---
+
+# Circle
+
+## Overview
+
+Research text with [sources](https://example.com).
+
+:::callout type="note"
+This assessment is a working draft.
+:::</pre>
+<p class="small">{{t "format.frontmatter.keys"}} <code>title</code> {{t "format.frontmatter.title"}}, <code>description</code> (500), <code>tags</code> {{t "format.frontmatter.tags"}}, <code>order</code> {{t "format.frontmatter.order"}}, {{t "common.and"}} <code>extra</code> {{t "format.frontmatter.extra"}} {{t "format.frontmatter.rules"}}</p>
+<p class="small">{{t "format.markdown"}}</p>
+</div></div>
+</div>
+<div class="col-lg-6">
+<div class="card mb-3"><div class="card-body">
+<h2 class="h6">{{t "format.extensions"}}</h2>
+<pre class="small bg-body-tertiary p-3 rounded">:::callout type="note|tip|warning|important"
+Markdown
+:::
+
+:::cards
+- [Circle](/research/circle) — Competitor research
+- [About](/about) — Who we are
+:::
+
+:::details title="More information"
+Markdown
+:::</pre>
+</div></div>
+<div class="card"><div class="card-body">
+<h2 class="h6">{{t "format.paths_title"}}</h2>
+<p class="small">{{t "format.paths.lowercase"}} (<code>a-z 0-9 - _</code>), {{t "format.paths.pages"}} <code>.md</code>, {{t "format.paths.images"}} <code>.png .jpg .jpeg .webp</code>. {{t "format.paths.leading"}} <code>/</code> {{t "format.paths.root"}} {{t "format.paths.links"}}</p>
+<h2 class="h6 mt-3">tmp.yaml</h2>
+<pre class="small bg-body-tertiary p-3 rounded">version: 1
+name: My research
+theme: docs        # docs | editorial
+appearance: system # light | dark | system
+navigation:
+  - title: Research
+    path: /research/
+sidebar:
+  auto: true
+features:
+  search: true
+  toc: true</pre>
+</div></div>
+</div>
+</div>
+{{end}}
