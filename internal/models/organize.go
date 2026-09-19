@@ -77,7 +77,7 @@ func (o *Ops) SuggestPlacement(ctx context.Context, p Principal, in PlacementInp
 	// The model sees an excerpt of the document only when the server has a model
 	// configured and this organization's owner has opted in (Settings).
 	var pl *Placement
-	if o.AI != nil {
+	if o.AI != nil && o.AI.Enabled(ctx) {
 		if t, err := GetTenant(ctx, p.TenantID); err == nil && t.AIFilingEnabled {
 			pl = o.aiPlacement(ctx, p, snap, in, ext)
 		}
@@ -525,7 +525,7 @@ func (AICall) TableName() string { return "ai_call" }
 
 func (o *Ops) recordAICall(ctx context.Context, p Principal, inTok, outTok int, latency time.Duration, outcome, detail string) {
 	model := ""
-	if o.AI != nil {
+	if o.AI != nil && o.AI.Enabled(ctx) {
 		model = o.AI.Model()
 	}
 	if len(detail) > 300 {
@@ -577,4 +577,19 @@ func (o *Ops) AISummary(ctx context.Context, tenantID int64) (AICallSummary, err
 		return nil
 	})
 	return out, err
+}
+
+// VerifyAI asks the configured model for one token, so that saving a
+// credential reports whether it works instead of leaving the operator to
+// discover later that filing quietly fell back to the heuristic.
+func (o *Ops) VerifyAI(ctx context.Context) error {
+	if o.AI == nil || !o.AI.Enabled(ctx) {
+		return errors.New(errors.CodeValidationFailed, "no model credential is configured")
+	}
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
+	defer cancel()
+	if _, err := o.AI.Complete(ctx, "Reply with the single word: ok", "ping", 8); err != nil {
+		return errors.New(errors.CodeValidationFailed, err.Error())
+	}
+	return nil
 }

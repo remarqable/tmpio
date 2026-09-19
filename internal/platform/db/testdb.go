@@ -38,6 +38,11 @@ func ConnectTest(t *testing.T) {
 func ResetTestData(t *testing.T) {
 	t.Helper()
 	tables := []string{"mutation_receipt", "audit_event", "share_grant_asset", "share_grant", "oauth_token", "oauth_code", "oauth_grant", "oauth_client", "api_token", "path_alias", "revision", "entry", "asset_blob", "membership", "login_state", "session", "identity", "local_credential", "launch_signup", "tenant", `"user"`}
+	// instance_setting is a singleton the migration seeds; reset its columns
+	// rather than truncating the row away.
+	if err := gdbOwner.Exec(`UPDATE instance_setting SET ai_api_key = '', ai_model = '', ai_base_url = '', ai_workspace_id = '' WHERE id = 1`).Error; err != nil {
+		t.Fatalf("reset instance_setting: %v", err)
+	}
 	for _, tbl := range tables {
 		if err := gdbOwner.Exec("TRUNCATE TABLE " + tbl + " RESTART IDENTITY CASCADE").Error; err != nil {
 			t.Fatalf("truncate %s: %v", tbl, err)

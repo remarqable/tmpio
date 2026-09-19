@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -17,6 +18,11 @@ import (
 	"github.com/remarqable/tmpio/internal/platform/config"
 )
 
+// ErrNotConfigured is returned when a call is attempted with no model
+// credential anywhere. Callers fall back to the heuristic rather than failing
+// the request.
+var ErrNotConfigured = errors.New("no model credential is configured")
+
 // Completer is the narrow interface models depend on, so tests can stub it.
 type Completer interface {
 	// Complete sends one user message under a system prompt and returns the
@@ -24,6 +30,10 @@ type Completer interface {
 	Complete(ctx context.Context, system, user string, maxTokens int) (Result, error)
 	// Model names the model in use, for audit rows.
 	Model() string
+	// Enabled reports whether a call would reach a model at all. It takes a
+	// context because the credential can live in the database and change
+	// while the server is running.
+	Enabled(ctx context.Context) bool
 }
 
 // Result is a completed reply.
@@ -53,6 +63,10 @@ func New(cfg config.AI) *Client {
 
 // Model implements Completer.
 func (c *Client) Model() string { return c.cfg.Model }
+
+// Enabled implements Completer. A constructed client always has a key: New
+// returns nil without one.
+func (c *Client) Enabled(context.Context) bool { return true }
 
 type request struct {
 	Model       string    `json:"model"`

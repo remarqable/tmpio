@@ -19,6 +19,9 @@ type fakeAI struct {
 	seen  string
 }
 
+// Enabled implements ai.Completer: a stub is always ready.
+func (f *fakeAI) Enabled(context.Context) bool { return true }
+
 func (f *fakeAI) Complete(_ context.Context, _ string, user string, _ int) (ai.Result, error) {
 	f.seen = user
 	if f.err != nil {

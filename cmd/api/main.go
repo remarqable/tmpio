@@ -102,11 +102,21 @@ func main() {
 		log.Fatal().Err(err).Msg("templates")
 	}
 	ops := &models.Ops{Quotas: cfg.Quotas, CursorKey: cfg.SessionSecret, AIMaxCallsPerHour: cfg.AI.MaxCallsPerHour}
-	if client := ai.New(cfg.AI); client != nil {
-		ops.AI = client
-		log.Info().Str("model", cfg.AI.Model).Msg("ai placement enabled")
+	// The credential is resolved per call: the environment wins when it has
+	// one, otherwise the instance settings page does, and either can change
+	// while the server runs.
+	resolver := ai.NewResolver(cfg.AI, func(ctx context.Context) (ai.Settings, error) {
+		s, err := models.GetInstanceSetting(ctx)
+		if err != nil {
+			return ai.Settings{}, err
+		}
+		return ai.Settings{APIKey: s.AIAPIKey, Model: s.AIModel, BaseURL: s.AIBaseURL, WorkspaceID: s.AIWorkspaceID}, nil
+	})
+	ops.AI = resolver
+	if resolver.EnvConfigured() {
+		log.Info().Str("model", cfg.AI.Model).Msg("ai filing: key from the environment")
 	} else {
-		log.Info().Msg("ai placement disabled (no ANTHROPIC_API_KEY); heuristic filing only")
+		log.Info().Msg("ai filing: no key in the environment; the instance settings page decides")
 	}
 	deps := &controllers.Deps{Cfg: cfg, Ops: ops, Google: auth.NewGoogle(cfg), Tmpl: tmpl}
 	mcpServer := tmpmcp.New(cfg, ops)

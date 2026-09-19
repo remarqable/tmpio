@@ -22,13 +22,20 @@ type NavLink struct {
 }
 
 // adminNav lists the admin sections; nothing content-related lives here.
-func adminNav(active string) []NavLink {
+// adminNav lists the admin sections. The server section appears only for the
+// account that administers the installation, because what it holds — the model
+// credential that pays for every organization's calls — belongs to whoever runs
+// the server rather than to any one owner.
+func adminNav(active string, instanceAdmin bool) []NavLink {
 	items := []NavLink{
 		{Key: "overview", Title: i18n.T("en", "admin.overview"), URL: "/admin", Icon: "home"},
 		{Key: "connections", Title: i18n.T("en", "nav.connections"), URL: "/admin/connections", Icon: "plug"},
 		{Key: "links", Title: i18n.T("en", "admin.links"), URL: "/admin/links", Icon: "link"},
 		{Key: "settings", Title: i18n.T("en", "nav.settings"), URL: "/admin/settings", Icon: "settings"},
 		{Key: "export", Title: i18n.T("en", "nav.export"), URL: "/admin/export", Icon: "export"},
+	}
+	if instanceAdmin {
+		items = append(items, NavLink{Key: "server", Title: i18n.T("en", "server.title"), URL: "/admin/server", Icon: "settings"})
 	}
 	for i := range items {
 		items[i].Active = items[i].Key == active
@@ -70,7 +77,8 @@ func (d *Deps) ownerShell(c *gin.Context, mode string) (*SiteView, *addr, error)
 	sv.Mode = mode
 	sv.Wide = mode != "site"
 	if mode == "admin" {
-		sv.AdminNav = adminNav(c.GetString("admin_active"))
+		_, _, u, _, _ := middleware.OwnerSession(c)
+		sv.AdminNav = adminNav(c.GetString("admin_active"), u != nil && u.IsInstanceAdmin)
 	}
 	return sv, a, nil
 }

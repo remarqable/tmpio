@@ -1,0 +1,51 @@
+{{define "content"}}
+<div class="row g-3">
+<div class="col-lg-7">
+<div class="card"><div class="card-body">
+<h2 class="h6">{{t "server.ai_title"}}</h2>
+<p class="form-text">{{t "server.ai_help"}}</p>
+
+{{if .Saved}}{{if .Verified}}<div class="alert alert-success py-2 small">{{t "server.ai_verified"}}</div>{{else if not .Error}}<div class="alert alert-secondary py-2 small">{{t "settings.saved"}}</div>{{end}}{{end}}
+{{if .Error}}<div class="alert alert-danger py-2 small">{{t "server.ai_rejected"}} <code>{{.Error}}</code></div>{{end}}
+
+{{if .EnvManaged}}
+  <div class="alert alert-secondary py-2 small mb-0">{{t "server.ai_env_managed"}}</div>
+{{else}}
+<form method="post" action="/admin/server/ai">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <div class="mb-3">
+    <label class="form-label" for="api-key">{{t "server.ai_key"}}</label>
+    <input class="form-control" id="api-key" name="api_key" type="password" autocomplete="off" spellcheck="false"
+           value="{{if .HasKey}}••••••••{{end}}" placeholder="sk-ant-...">
+    <div class="form-text">{{if .HasKey}}{{t "server.ai_key_set" "hint" .KeyHint}}{{else}}{{t "server.ai_key_none"}}{{end}}</div>
+  </div>
+  <div class="mb-3">
+    <label class="form-label" for="ai-model">{{t "server.ai_model"}}</label>
+    <input class="form-control" id="ai-model" name="model" value="{{.Model}}" spellcheck="false">
+  </div>
+  <details class="mb-3">
+    <summary class="small text-secondary">{{t "server.ai_advanced"}}</summary>
+    <div class="mt-2">
+      <label class="form-label" for="workspace-id">{{t "server.ai_workspace"}}</label>
+      <input class="form-control" id="workspace-id" name="workspace_id" value="{{.WorkspaceID}}" placeholder="wrkspc_..." spellcheck="false">
+      <div class="form-text">{{t "server.ai_workspace_help"}}</div>
+    </div>
+    <div class="mt-2">
+      <label class="form-label" for="base-url">{{t "server.ai_base_url"}}</label>
+      <input class="form-control" id="base-url" name="base_url" value="{{.BaseURL}}" placeholder="https://api.anthropic.com" spellcheck="false">
+    </div>
+  </details>
+  <button class="tmp-btn">{{template "icon" "check"}} {{t "settings.save"}}</button>
+</form>
+{{end}}
+</div></div>
+</div>
+
+<div class="col-lg-5">
+<div class="card"><div class="card-body">
+<h2 class="h6">{{t "server.consent_title"}}</h2>
+<p class="form-text mb-0">{{t "server.consent_help"}}</p>
+</div></div>
+</div>
+</div>
+{{end}}

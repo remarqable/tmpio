@@ -145,7 +145,10 @@ func (d *Deps) AdminSettings(c *gin.Context) {
 	sv.Title = i18n.T("en", "settings.title")
 	d.render(c, http.StatusOK, "pages/admin/settings.html", "layout/site", gin.H{
 		"Site": sv, "Config": cfg, "ConfigSource": src, "Expected": doc.Entry.CurrentRevision, "Saved": c.Query("saved") != "", "Error": c.Query("error"), "RequestID": uuidV4(),
-		"AIAvailable": d.Cfg.AI.Enabled(), "AIModel": d.Cfg.AI.Model, "AIFiling": a.Tenant.AIFilingEnabled,
+		// Whether the installation has a credential at all, wherever it came from.
+		"AIAvailable": d.Ops.AI != nil && d.Ops.AI.Enabled(c.Request.Context()),
+		"AIModel":     aiModelName(d),
+		"AIFiling":    a.Tenant.AIFilingEnabled,
 	})
 }
 
@@ -210,4 +213,117 @@ func (d *Deps) AdminExportDownload(c *gin.Context) {
 	}
 	c.Header("Content-Disposition", `attachment; filename="tmp-`+t.Code+`.zip"`)
 	c.Data(http.StatusOK, "application/zip", data)
+}
+
+// instanceAdmin returns the signed-in user when they administer the
+// installation, and answers the request otherwise. Owning an organization is
+// not enough: these settings spend the operator's money.
+func (d *Deps) instanceAdmin(c *gin.Context) (*models.User, bool) {
+	_, _, u, _, ok := middleware.OwnerSession(c)
+	if !ok || u == nil || !u.IsInstanceAdmin {
+		d.renderError(c, http.StatusNotFound, "")
+		return nil, false
+	}
+	return u, true
+}
+
+// AdminServer shows the settings that belong to the installation rather than
+// to one organization.
+func (d *Deps) AdminServer(c *gin.Context) {
+	if _, ok := d.instanceAdmin(c); !ok {
+		return
+	}
+	c.Set("admin_active", "server")
+	sv, _, err := d.ownerShell(c, "admin")
+	if err != nil {
+		d.fail(c, err)
+		return
+	}
+	set, err := models.GetInstanceSetting(c.Request.Context())
+	if err != nil {
+		d.fail(c, err)
+		return
+	}
+	sv.Title = i18n.T("en", "server.title")
+	d.render(c, http.StatusOK, "pages/admin/server.html", "layout/site", gin.H{
+		"Site": sv,
+		// The environment wins when it carries a key, so say that plainly
+		// rather than showing a field that cannot take effect.
+		"EnvManaged":  d.Cfg.AI.Enabled(),
+		"HasKey":      set.AIAPIKey != "",
+		"KeyHint":     keyHint(set.AIAPIKey),
+		"Model":       firstNonEmpty(set.AIModel, d.Cfg.AI.Model),
+		"BaseURL":     set.AIBaseURL,
+		"WorkspaceID": set.AIWorkspaceID,
+		"Saved":       c.Query("saved") != "", "Error": c.Query("error"), "Verified": c.Query("verified") != "",
+	})
+}
+
+// AdminServerAI saves the installation's model credentials and checks them
+// against the provider, so that a wrong key is reported here rather than
+// discovered later as filing that quietly stopped being intelligent.
+func (d *Deps) AdminServerAI(c *gin.Context) {
+	if _, ok := d.instanceAdmin(c); !ok {
+		return
+	}
+	if d.Cfg.AI.Enabled() {
+		d.flashFail(c, errors.New(errors.CodeForbidden, i18n.T("en", "server.ai_env_managed")), "/admin/server")
+		return
+	}
+	ctx := c.Request.Context()
+	key := strings.TrimSpace(c.PostForm("api_key"))
+	if key == keyUnchanged {
+		set, err := models.GetInstanceSetting(ctx)
+		if err != nil {
+			d.fail(c, err)
+			return
+		}
+		key = set.AIAPIKey
+	}
+	if err := models.SaveInstanceAI(ctx, key, c.PostForm("model"), c.PostForm("base_url"), c.PostForm("workspace_id")); err != nil {
+		d.flashFail(c, err, "/admin/server")
+		return
+	}
+	obs.From(ctx).Info().Str("event", "settings.instance_ai").Bool("key_set", key != "").Msg("")
+	if key == "" {
+		c.Redirect(http.StatusSeeOther, "/admin/server?saved=1")
+		return
+	}
+	// One cheap call: either the credential works or the operator hears why.
+	if err := d.Ops.VerifyAI(ctx); err != nil {
+		c.Redirect(http.StatusSeeOther, "/admin/server?saved=1&error="+url.QueryEscape(err.Error()))
+		return
+	}
+	c.Redirect(http.StatusSeeOther, "/admin/server?saved=1&verified=1")
+}
+
+// keyUnchanged is what the form submits when the operator did not retype the
+// key, so that a masked field never blanks a working credential.
+const keyUnchanged = "••••••••"
+
+// keyHint shows enough of a credential to recognise it and not enough to use it.
+func keyHint(k string) string {
+	if len(k) < 12 {
+		return ""
+	}
+	return k[:7] + "…" + k[len(k)-4:]
+}
+
+func firstNonEmpty(vals ...string) string {
+	for _, v := range vals {
+		if v != "" {
+			return v
+		}
+	}
+	return ""
+}
+
+// aiModelName reports the model filing would use, for the tenant settings page.
+func aiModelName(d *Deps) string {
+	if d.Ops.AI != nil {
+		if m := d.Ops.AI.Model(); m != "" {
+			return m
+		}
+	}
+	return d.Cfg.AI.Model
 }

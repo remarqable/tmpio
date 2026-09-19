@@ -49,6 +49,7 @@ Automated evidence: `internal/models/integration_test.go` runs as `app_user` aga
 
 | Control | Implementation |
 |---|---|
+| Instance model key | `instance_setting.ai_api_key`, set by the account marked `is_instance_admin` at `/admin/server`, or by `ANTHROPIC_API_KEY` in the environment, which wins and makes the page read-only. It is instance-wide because it pays for every organization's calls; whether a given organization's content may be sent is a separate per-tenant opt-in. Stored so it can be replayed; see "Tokens" below. |
 | Local owner password | Self-hosted instances sign in with `OWNER_EMAIL` and `OWNER_PASSWORD` instead of an identity provider. The password is stored as argon2id (64 MiB, 3 passes, 2 lanes) with a per-credential salt, never in plaintext or as a fast hash. `POST /auth/local` is limited to 10 attempts per minute per IP, checks the origin, and answers a wrong address and a wrong password identically, having done the same work in both cases. It never creates an account: the owner is provisioned at startup. |
 | Closed sign-ups | `SIGNUPS_ENABLED=0` makes `models.SignIn` refuse an unknown identity with `signups_closed` before anything is written; the browser lands on the public page with the waitlist. Existing users are unaffected. |
 | Launch waitlist | `POST /waitlist`: same-origin check, 10 per minute per IP, honeypot field, email syntax check, `INSERT ... ON CONFLICT DO NOTHING` so the response never reveals whether an address was already listed. The table is platform-level (no tenant) and nothing in the application reads it. |
@@ -110,7 +111,9 @@ Automated evidence: `internal/models/integration_test.go` runs as `app_user` aga
 | Sign-in state | none | 32 | SHA-256 | nonce, PKCE verifier, return path | 10 minutes, single use | |
 | Org code | | 8 Crockford Base32 chars | plaintext | | immutable | identifier, not a secret |
 
-All tokens come from `crypto/rand` (`models.NewToken`). Plaintext appears once, in the response that creates it, and is never logged, exported or placed in audit rows. PKCE challenges are compared after SHA-256 of the verifier; client secrets are compared in constant time.
+All tokens come from `crypto/rand` (`models.NewToken`). Plaintext appears once, in the response that creates it, and is never logged, exported or placed in audit rows.
+
+One credential is the exception, and it is an inbound/outbound distinction rather than an oversight: the model API key (`instance_setting.ai_api_key`) is a credential tmp *presents* to Anthropic, not one it verifies, so it is stored in a form the server can replay. A database dump therefore contains a usable provider key. The consequences: encrypt dumps (RUNBOOK "Backup"), and treat a database compromise as a compromise of that key — rotate it at the provider. Everything tmp issues for its own verification, including the local owner password, is stored only as a hash. PKCE challenges are compared after SHA-256 of the verifier; client secrets are compared in constant time.
 
 ## Rate limits
 

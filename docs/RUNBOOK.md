@@ -42,7 +42,7 @@ Adding a migration: `goose -dir migrations create <name> sql`. Every tenant-scop
 
 ## Backup
 
-Back up daily with `pg_dump` under the owner URL. The dump includes everything: users, identities, sessions (hashes), tenants, entries, every revision source, asset bytes (`asset_blob.data`), share grants (hashes), OAuth grants and token hashes, API token hashes, audit events, mutation receipts and the launch waitlist. No plaintext credential exists in the database, so the dump contains none. It does contain user content and email addresses, so the dump is encrypted before it touches disk and the plaintext never exists as a file.
+Back up daily with `pg_dump` under the owner URL. The dump includes everything: users, identities, sessions (hashes), tenants, entries, every revision source, asset bytes (`asset_blob.data`), share grants (hashes), OAuth grants and token hashes, API token hashes, audit events, mutation receipts and the launch waitlist. One plaintext credential can exist in the database: the instance model key (`instance_setting.ai_api_key`), which has to be replayed to the provider and so cannot be hashed. Every credential tmp issues itself is stored as a hash, so the dump contains no session, token, share or password material that could be replayed. It does contain user content and email addresses, so the dump is encrypted before it touches disk and the plaintext never exists as a file.
 
 The backup key is an [age](https://age-encryption.org) key pair. The public (recipient) key lives on the server; the private key lives only with the operator, off the server, alongside the session secret. Without it a backup is unreadable, including to us.
 

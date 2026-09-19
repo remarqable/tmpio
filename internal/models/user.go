@@ -14,12 +14,15 @@ import (
 
 // User is a person who signs in. Identity is by provider issuer+subject, never email alone.
 type User struct {
-	ID          int64     `gorm:"primaryKey"`
-	DisplayName string    `gorm:"column:display_name"`
-	Email       string    `gorm:"column:email"`
-	AvatarURL   string    `gorm:"column:avatar_url"`
-	CreatedAt   time.Time `gorm:"autoCreateTime"`
-	UpdatedAt   time.Time `gorm:"autoUpdateTime"`
+	ID          int64  `gorm:"primaryKey"`
+	DisplayName string `gorm:"column:display_name"`
+	Email       string `gorm:"column:email"`
+	AvatarURL   string `gorm:"column:avatar_url"`
+	// IsInstanceAdmin marks the account that administers the installation, as
+	// opposed to owning one organization within it. Set by the setup wizard.
+	IsInstanceAdmin bool      `gorm:"column:is_instance_admin"`
+	CreatedAt       time.Time `gorm:"autoCreateTime"`
+	UpdatedAt       time.Time `gorm:"autoUpdateTime"`
 }
 
 // TableName follows the singular naming convention.
