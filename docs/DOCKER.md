@@ -64,8 +64,13 @@ curl -fsSL https://raw.githubusercontent.com/remarqable/tmpio/main/install.sh \
 and waits until it reports ready. It generates the session secret, both
 database passwords and the owner password, and prints the owner password at
 the end. Re-running it keeps your secrets and data, so it doubles as the
-updater. `--no-caddy` leaves your existing proxy alone, `--dry-run` says what
-it would do, and `--print-compose` shows the compose file it would write.
+updater. `--no-caddy` leaves your existing proxy alone, `--port` moves it off 8000 when
+something else is already there, `--dry-run` says what it would do, and
+`--print-compose` shows the compose file it would write.
+
+If a site for your domain already exists in the Caddyfile, the installer
+restores the file untouched and tells you rather than leaving a half-edited
+config that would take down every other site on the host at the next reload.
 
 The rest of this section is the same thing by hand.
 

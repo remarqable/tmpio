@@ -19,6 +19,7 @@ VERSION="1.0.0"
 
 DIR="/opt/tmp"
 TAG="1"
+PORT="8000"
 DOMAIN=""
 EMAIL=""
 PASSWORD=""
@@ -42,6 +43,8 @@ tmp installer ${VERSION}
   --password <pass>   owner password (default: generated and printed)
   --dir <path>        install directory (default: ${DIR})
   --tag <tag>         image tag to run (default: ${TAG})
+  --port <port>       loopback port to publish on (default: ${PORT}); change it
+                      when something else already uses that port
   --no-caddy          do not install or configure Caddy; bring your own proxy
   --no-firewall       do not touch ufw
   --print-compose     print the compose file this script would write, and exit
@@ -124,6 +127,7 @@ while [ $# -gt 0 ]; do
     --password)      PASSWORD="${2:-}"; shift 2 ;;
     --dir)           DIR="${2:-}"; shift 2 ;;
     --tag)           TAG="${2:-}"; shift 2 ;;
+    --port)          PORT="${2:-}"; shift 2 ;;
     --no-caddy)      WITH_CADDY=0; shift ;;
     --no-firewall)   WITH_FIREWALL=0; shift ;;
     --print-compose) compose_file; exit 0 ;;
@@ -151,7 +155,7 @@ if [ "$DRY_RUN" -eq 1 ]; then
   say "would install into ${DIR}"
   say "would install: docker$([ $WITH_CADDY -eq 1 ] && echo ", caddy")"
   say "would write:   ${DIR}/docker-compose.yml, ${ENV_FILE}$([ $WITH_CADDY -eq 1 ] && echo ", /etc/caddy/Caddyfile")"
-  say "would run:     docker compose up -d   (image ghcr.io/remarqable/tmpio:${TAG})"
+  say "would run:     docker compose up -d   (image ghcr.io/remarqable/tmpio:${TAG}, on 127.0.0.1:${PORT})"
   [ "$EXISTING" -eq 1 ] && say "note: ${ENV_FILE} exists; its secrets would be kept"
   exit 0
 fi
@@ -185,7 +189,10 @@ fi
 
 step "Configuration"
 mkdir -p "$DIR"
-compose_file | sed "s|ghcr.io/remarqable/tmpio:1|ghcr.io/remarqable/tmpio:${TAG}|" > "${DIR}/docker-compose.yml"
+compose_file \
+  | sed "s|ghcr.io/remarqable/tmpio:1|ghcr.io/remarqable/tmpio:${TAG}|" \
+  | sed "s|127.0.0.1:8000:8000|127.0.0.1:${PORT}:${PORT}|; s|PORT: \"8000\"|PORT: \"${PORT}\"|" \
+  > "${DIR}/docker-compose.yml"
 note "wrote ${DIR}/docker-compose.yml"
 mkdir -p "${DIR}/web"
 note "created ${DIR}/web for your own front page; empty means the built-in sign-in page"
@@ -226,7 +233,7 @@ fi
 
 if [ "$WITH_CADDY" -eq 1 ]; then
   CADDYFILE=/etc/caddy/Caddyfile
-  BLOCK=$(printf '# >>> tmp >>>\n%s {\n    reverse_proxy 127.0.0.1:8000\n}\n# <<< tmp <<<\n' "$DOMAIN")
+  BLOCK=$(printf '# >>> tmp >>>\n%s {\n    reverse_proxy 127.0.0.1:%s\n}\n# <<< tmp <<<\n' "$DOMAIN" "$PORT")
   mkdir -p /etc/caddy
   if [ -f "$CADDYFILE" ] && grep -q '# >>> tmp >>>' "$CADDYFILE"; then
     # Replace our own block, leave everything else of theirs alone.
@@ -238,14 +245,24 @@ if [ "$WITH_CADDY" -eq 1 ]; then
     note "updated the tmp block in ${CADDYFILE}"
   else
     if [ -f "$CADDYFILE" ]; then
-      cp "$CADDYFILE" "${CADDYFILE}.bak.$(date +%s)"
+      CADDY_BACKUP="${CADDYFILE}.bak.$(date +%s)"
+      cp "$CADDYFILE" "$CADDY_BACKUP"
       note "backed up the existing ${CADDYFILE}"
     fi
     printf '\n%s\n' "$BLOCK" >> "$CADDYFILE"
     note "added a tmp block to ${CADDYFILE}"
   fi
-  caddy validate --config "$CADDYFILE" --adapter caddyfile >/dev/null 2>&1 \
-    || die "the Caddyfile at ${CADDYFILE} does not validate; nothing was started"
+  if ! caddy validate --config "$CADDYFILE" --adapter caddyfile >/dev/null 2>&1; then
+    # Put back exactly what was there. A half-edited Caddyfile would take down
+    # every other site on this host at the next reload.
+    if [ -n "${CADDY_BACKUP:-}" ] && [ -f "$CADDY_BACKUP" ]; then
+      mv "$CADDY_BACKUP" "$CADDYFILE"
+      note "restored ${CADDYFILE}; nothing was changed"
+    else
+      rm -f "$CADDYFILE"
+    fi
+    die "the Caddyfile does not validate with a block for ${DOMAIN} added. A site for that name probably exists already: remove it, or re-run with --no-caddy and wire the proxy up yourself."
+  fi
   systemctl reload caddy 2>/dev/null || systemctl restart caddy
   note "caddy reloaded; it will request a certificate for ${DOMAIN}"
 fi
@@ -263,7 +280,7 @@ docker compose up -d
 
 printf '\n'
 for i in $(seq 1 60); do
-  if curl -fsS -o /dev/null http://127.0.0.1:8000/readyz 2>/dev/null; then
+  if curl -fsS -o /dev/null "http://127.0.0.1:${PORT}/readyz" 2>/dev/null; then
     READY=1; break
   fi
   sleep 2
