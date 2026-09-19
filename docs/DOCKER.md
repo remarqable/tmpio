@@ -49,8 +49,25 @@ credentials.
 ## A first deployment, end to end
 
 A fresh Debian 12 or Ubuntu 24.04 server with a domain pointed at it. Two
-vCPUs and 2GB of memory is comfortable; 1GB works to run but not to build,
-because the Go compiler needs room.
+vCPUs and 2GB of memory is comfortable; 1GB is enough to run the published
+image, and only building from source needs more.
+
+The short version, which does everything below for you:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/remarqable/tmpio/main/install.sh \
+  | sudo bash -s -- --domain tmp.example.com --email you@example.com
+```
+
+`install.sh` installs Docker and Caddy, writes `/opt/tmp/docker-compose.yml`,
+`/opt/tmp/.env` and a Caddy site block, opens 22, 80 and 443, starts the stack
+and waits until it reports ready. It generates the session secret, both
+database passwords and the owner password, and prints the owner password at
+the end. Re-running it keeps your secrets and data, so it doubles as the
+updater. `--no-caddy` leaves your existing proxy alone, `--dry-run` says what
+it would do, and `--print-compose` shows the compose file it would write.
+
+The rest of this section is the same thing by hand.
 
 **Before you start**, point an A record at the server's IP address and wait
 until `dig +short your-domain` answers with it. Caddy asks for a certificate

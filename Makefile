@@ -73,6 +73,9 @@ check: ## The blueprint's boundary checks
 	@! grep -rn "db\.Get()\|db\.WithTenant\|gorm\.DB" internal/controllers internal/mcp --include=*.go | grep -v _test.go || { echo "database access outside models"; exit 1; }
 	@echo "boundary checks passed"
 
+installer-check: ## The installer's embedded compose file must match docker-compose.yml
+	@bash install.sh --print-compose | diff -u docker-compose.yml - && echo "installer compose matches"
+
 vulncheck: ## Report known vulnerabilities in the dependency graph that this code reaches
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 

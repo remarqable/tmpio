@@ -66,6 +66,12 @@ jobs:
         run: go vet ./...
       - name: Boundary checks
         run: make check
+      - name: The installer's embedded compose file matches the real one
+        run: |
+          bash install.sh --print-compose > /tmp/embedded.yml
+          diff -u docker-compose.yml /tmp/embedded.yml
+      - name: Installer parses
+        run: bash -n install.sh && sudo bash install.sh --dry-run --domain tmp.example.com --email ci@example.com
       - name: Test
         run: go test ./... -race -count=1 -p 1
       - name: Vulnerability check

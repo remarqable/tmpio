@@ -32,6 +32,7 @@ internal/platform/          config, db (RLS scoping), errors, auth (Google OIDC)
 internal/assets/            embedded templates (views/) and static files (static/)
 migrations/                 goose SQL, 00001_platform through 00010_local_owner (also embedded in the binary)
 scripts/                    e2e.sh (10-step core proof), loadcheck.sh (bounded load check), screenshots.mjs (visual checks)
+install.sh                  one-command installer for a fresh Debian or Ubuntu server
 config/local.env.example    every environment variable with a development default
 blueprint/                  architecture blueprint (submodule, do not edit)
 docs/                       DOCKER, SETUP, RUNBOOK, FORMAT, API, MCP, SHARING, SECURITY, PRIVACY, TERMS
@@ -39,8 +40,21 @@ docs/                       DOCKER, SETUP, RUNBOOK, FORMAT, API, MCP, SHARING, S
 
 ## Run it
 
-The fastest way to a working instance is Docker: two containers, one `.env`,
-and the server sets up its own database role, schema and owner account.
+On a fresh Debian or Ubuntu server with a domain pointed at it, one command
+installs Docker and Caddy, generates the secrets, gets a certificate and starts
+the stack:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/remarqable/tmpio/main/install.sh \
+  | sudo bash -s -- --domain tmp.example.com --email you@example.com
+```
+
+It prints the owner password when it finishes. [install.sh](install.sh) is
+about 290 lines and worth reading before you pipe it to root; it writes three
+files and hands off to `docker compose`, and it does not phone home.
+
+Prefer to do it yourself, or already have a reverse proxy? Two containers and
+one `.env`; the server sets up its own database role, schema and owner account:
 
 ```bash
 mkdir tmp && cd tmp
