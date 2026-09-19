@@ -26,45 +26,17 @@ func (d *Deps) Landing(c *gin.Context) {
 		d.Content(c)
 		return
 	}
+	// An operator who has published their own front page owns this address.
+	if d.servePublicSite(c) {
+		return
+	}
 	middleware.NoStore(c)
-	d.render(c, http.StatusOK, "pages/auth/landing.html", "layout/landing", d.landingData(c))
+	d.render(c, http.StatusOK, "pages/auth/landing.html", "layout/auth", d.landingData(c))
 }
 
-// landingData is the view model of the public landing page, including the
-// launch waitlist state while sign-ups are closed.
+// landingData is the view model of the public sign-in page.
 func (d *Deps) landingData(c *gin.Context) gin.H {
-	heads := []string{i18n.T("en", "landing.h1"), i18n.T("en", "landing.h2"), i18n.T("en", "landing.h3"), i18n.T("en", "landing.h4")}
-	return gin.H{
-		"Return": "", "Headlines": heads, "Headline": heads[0], "Sub": i18n.T("en", "landing.sub"),
-		"Joined": c.Query("joined") == "1", "SignupsClosedNotice": c.Query("closed") == "1", "AccountDeleted": c.Query("deleted") == "1",
-		"WaitlistError": c.Query("waitlist_error") == "1",
-	}
-}
-
-// Waitlist records a visitor's email for the hosted-service launch. It is a
-// public form: rate limited per IP, same-origin only, with a honeypot field.
-// Every valid submission is answered the same way, so the response never
-// reveals whether an address was already on the list.
-func (d *Deps) Waitlist(c *gin.Context) {
-	middleware.NoStore(c)
-	if !middleware.OriginAllowed(c, d.Cfg.AppOrigin) {
-		d.renderError(c, http.StatusForbidden, i18n.T("en", "error.cross_origin"))
-		return
-	}
-	if c.PostForm("website") != "" { // honeypot: humans never see this field
-		c.Redirect(http.StatusSeeOther, "/?joined=1")
-		return
-	}
-	if err := models.JoinWaitlist(c.Request.Context(), c.PostForm("email"), c.PostForm("source")); err != nil {
-		if errors.As(err).HTTPStatus() >= 500 {
-			d.fail(c, err)
-			return
-		}
-		c.Redirect(http.StatusSeeOther, "/?waitlist_error=1#notify")
-		return
-	}
-	obs.From(c.Request.Context()).Info().Str("event", "waitlist.joined").Msg("")
-	c.Redirect(http.StatusSeeOther, "/?joined=1#notify")
+	return gin.H{"Return": "", "SignInFailed": c.Query("failed") == "1"}
 }
 
 // Login shows sign-in options and preserves the requested return path.
@@ -191,7 +163,7 @@ func (d *Deps) finishSignIn(c *gin.Context, ident models.ExternalIdentity, retur
 		if errors.Is(err, errors.CodeSignupsClosed) {
 			obs.From(ctx).Info().Str("event", "auth.signup_refused").Msg("")
 			middleware.NoStore(c)
-			c.Redirect(http.StatusFound, "/?closed=1#notify")
+			c.Redirect(http.StatusFound, "/login?closed=1")
 			return
 		}
 		obs.From(ctx).Error().Err(err).Msg("sign in")

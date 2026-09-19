@@ -305,32 +305,6 @@ func DeleteAccount(ctx context.Context, userID, tenantID int64) error {
 	})
 }
 
-// LaunchSignup is a visitor who asked to hear when the hosted service opens.
-type LaunchSignup struct {
-	ID        int64 `gorm:"primaryKey"`
-	Email     string
-	Source    string
-	CreatedAt time.Time `gorm:"autoCreateTime"`
-}
-
-// TableName follows the singular naming convention.
-func (LaunchSignup) TableName() string { return "launch_signup" }
-
-// JoinWaitlist records an email address once. Repeats are silently accepted so
-// the response never reveals whether an address is already on the list.
-func JoinWaitlist(ctx context.Context, email, source string) error {
-	email = strings.ToLower(strings.TrimSpace(email))
-	if len(email) < 3 || len(email) > 254 || !strings.Contains(email, "@") || strings.ContainsAny(email, " \t\r\n<>") {
-		return errors.New(errors.CodeValidationFailed, "a valid email address is required")
-	}
-	if len(source) > 40 {
-		source = source[:40]
-	}
-	return db.WithTx(ctx, func(tx *gorm.DB) error {
-		return tx.Exec(`INSERT INTO launch_signup (email, source) VALUES (?, ?) ON CONFLICT (email) DO NOTHING`, email, source).Error
-	})
-}
-
 // RenameTenant sets the optional organization name. It never changes the code.
 func RenameTenant(ctx context.Context, tenantID int64, name string) error {
 	name = strings.TrimSpace(name)

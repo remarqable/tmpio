@@ -16,10 +16,12 @@ func TestAddressingAndAuthorization(t *testing.T) {
 	h := newHarness(t)
 	anon := h.anon()
 
-	// Signed-out root is the landing page; other navigation goes to login with a return path.
+	// Signed-out root is the sign-in page; other navigation goes to login with a return path.
 	res := anon.do("GET", "/", nil, map[string]string{"Accept": "text/html"})
 	assert.Equal(t, 200, res.StatusCode)
-	assert.Contains(t, readAll(res), "second brain for your AI")
+	root := readAll(res)
+	assert.Contains(t, root, "A publishing layer for your AI")
+	assert.Contains(t, root, "/auth/dev", "the root offers a way in")
 	res = anon.do("GET", "/research/circle", nil, map[string]string{"Accept": "text/html", "Sec-Fetch-Mode": "navigate"})
 	assert.Equal(t, 302, res.StatusCode)
 	assert.Equal(t, "/login?return=%2Fresearch%2Fcircle", res.Header.Get("Location"))

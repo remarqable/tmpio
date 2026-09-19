@@ -41,13 +41,24 @@ func (d *Deps) SetupRouter(mcpHandler http.Handler) *gin.Engine {
 	r.GET("/healthz", d.Healthz)
 	r.GET("/readyz", d.Readyz)
 	r.GET("/metrics", d.Metrics)
-	r.GET("/robots.txt", d.Robots)
-	r.GET("/favicon.ico", func(c *gin.Context) {
+	// These four are registered routes, so they never reach the catch-all
+	// where the operator's static files are offered. A front page is expected
+	// to own them, so offer the files here too.
+	publicOr := func(h gin.HandlerFunc) gin.HandlerFunc {
+		return func(c *gin.Context) {
+			if d.servePublicSite(c) {
+				return
+			}
+			h(c)
+		}
+	}
+	r.GET("/robots.txt", publicOr(d.Robots))
+	r.GET("/favicon.ico", publicOr(func(c *gin.Context) {
 		c.Header("Cache-Control", "public, max-age=86400")
 		c.Status(http.StatusNoContent)
-	})
-	r.GET("/sitemap.xml", func(c *gin.Context) { c.Status(404) })
-	r.GET("/llms.txt", func(c *gin.Context) { c.Status(404) })
+	}))
+	r.GET("/sitemap.xml", publicOr(func(c *gin.Context) { c.Status(404) }))
+	r.GET("/llms.txt", publicOr(func(c *gin.Context) { c.Status(404) }))
 
 	authLimit := ratelimit.New(30)
 	writeLimit := ratelimit.New(60)
@@ -68,8 +79,6 @@ func (d *Deps) SetupRouter(mcpHandler http.Handler) *gin.Engine {
 	// because this is the one route where guessing a secret is the attack.
 	r.POST("/auth/local", middleware.RateLimit(ratelimit.New(10), middleware.KeyByIP), d.LocalLogin)
 	r.POST("/logout", middleware.CSRF(d.Cfg), d.Logout)
-	// Launch waitlist: anonymous, same-origin, 10 submissions per minute per IP.
-	r.POST("/waitlist", middleware.RateLimit(ratelimit.New(10), middleware.KeyByIP), d.Waitlist)
 
 	// OAuth authorization server for AI clients
 	r.GET("/.well-known/oauth-authorization-server", d.ASMetadata)
@@ -183,6 +192,10 @@ func (d *Deps) SetupRouter(mcpHandler http.Handler) *gin.Engine {
 		// Anything under /s/ that is not a defined link route is an invalid selector: 404, never content routing.
 		if strings.HasPrefix(c.Request.URL.Path, "/s/") {
 			d.shareNotFound(c)
+			return
+		}
+		// An operator's own pages answer strangers before the application does.
+		if d.servePublicSite(c) {
 			return
 		}
 		d.Content(c)

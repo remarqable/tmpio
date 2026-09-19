@@ -83,6 +83,12 @@ services:
       # this every caller would look like the gateway and per-IP rate limits
       # would apply to everyone at once.
       TRUSTED_PROXIES: "172.16.0.0/12"
+      # Your own front page, if you publish one. Files dropped in ./web are
+      # served to visitors who are not signed in; an empty directory means the
+      # built-in sign-in page answers instead. See docs/DOCKER.md.
+      PUBLIC_SITE_DIR: /web
+    volumes:
+      - ./web:/web:ro
     ports:
       # Bound to loopback: put a reverse proxy in front for TLS. Change to
       # "8000:8000" only if something else already terminates TLS for you.
@@ -181,6 +187,8 @@ step "Configuration"
 mkdir -p "$DIR"
 compose_file | sed "s|ghcr.io/remarqable/tmpio:1|ghcr.io/remarqable/tmpio:${TAG}|" > "${DIR}/docker-compose.yml"
 note "wrote ${DIR}/docker-compose.yml"
+mkdir -p "${DIR}/web"
+note "created ${DIR}/web for your own front page; empty means the built-in sign-in page"
 
 if [ "$EXISTING" -eq 1 ]; then
   note "kept ${ENV_FILE} and the secrets in it"

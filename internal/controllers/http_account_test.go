@@ -22,69 +22,6 @@ func postForm(c *client, path string, vals url.Values, origin string) (int, stri
 	return res.StatusCode, res.Header.Get("Location")
 }
 
-func waitlistCount(t *testing.T) int64 {
-	var n int64
-	require.NoError(t, db.OwnerForTest(t).Raw(`SELECT count(*) FROM launch_signup`).Scan(&n).Error)
-	return n
-}
-
-func TestWaitlistAndClosedSignups(t *testing.T) {
-	h := newHarness(t)
-	anon := h.anon()
-
-	// Valid address: recorded once, same answer on repeat.
-	status, loc := postForm(anon, "/waitlist", url.Values{"email": {"Person@Example.com"}, "source": {"landing"}}, h.origin)
-	require.Equal(t, 303, status)
-	require.Equal(t, "/?joined=1#notify", loc)
-	status, loc = postForm(anon, "/waitlist", url.Values{"email": {"person@example.com"}}, h.origin)
-	require.Equal(t, 303, status)
-	require.Equal(t, "/?joined=1#notify", loc)
-	require.EqualValues(t, 1, waitlistCount(t))
-
-	// Invalid address, honeypot and cross-origin: nothing stored.
-	status, loc = postForm(anon, "/waitlist", url.Values{"email": {"not-an-address"}}, h.origin)
-	require.Equal(t, 303, status)
-	require.Equal(t, "/?waitlist_error=1#notify", loc)
-	status, _ = postForm(anon, "/waitlist", url.Values{"email": {"bot@example.com"}, "website": {"http://spam"}}, h.origin)
-	require.Equal(t, 303, status)
-	status, _ = postForm(anon, "/waitlist", url.Values{"email": {"evil@example.com"}}, "https://evil.example")
-	require.Equal(t, 403, status)
-	require.EqualValues(t, 1, waitlistCount(t))
-
-	// An existing account, then sign-ups close.
-	existing := h.signIn("existing@x.test")
-	res := existing.form("/logout", url.Values{})
-	res.Body.Close()
-	h.cfg.SignupsEnabled = false
-
-	// Landing page offers the waitlist and no account creation.
-	res = anon.do("GET", "/", nil, nil)
-	body := readAll(res)
-	require.Equal(t, 200, res.StatusCode)
-	require.Contains(t, body, `action="/waitlist"`)
-	require.Contains(t, body, "https://example.test/src")
-	require.NotContains(t, body, `href="/auth/google"`)
-
-	// Existing identity still signs in.
-	status, loc = postForm(anon, "/auth/dev", url.Values{"email": {"existing@x.test"}}, h.origin)
-	require.Equal(t, 302, status)
-	require.Equal(t, "/", loc)
-
-	// A new identity is refused, nothing is created, and the visitor lands on the waitlist.
-	newcomer := h.anon()
-	status, loc = postForm(newcomer, "/auth/dev", url.Values{"email": {"newcomer@x.test"}}, h.origin)
-	require.Equal(t, 302, status)
-	require.Equal(t, "/?closed=1#notify", loc)
-	var users int64
-	require.NoError(t, db.OwnerForTest(t).Raw(`SELECT count(*) FROM "user" WHERE email = 'newcomer@x.test'`).Scan(&users).Error)
-	require.EqualValues(t, 0, users)
-	res = newcomer.do("GET", "/admin", nil, map[string]string{"Accept": "text/html", "Sec-Fetch-Mode": "navigate"})
-	res.Body.Close()
-	require.Equal(t, 302, res.StatusCode, "no session was issued")
-
-	h.cfg.SignupsEnabled = true
-}
-
 func TestAIFilingOptInAndAccountDeletion(t *testing.T) {
 	h := newHarness(t)
 	c := h.signIn("owner@x.test")

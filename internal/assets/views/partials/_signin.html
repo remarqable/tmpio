@@ -1,7 +1,7 @@
 {{define "partials/_signin.html"}}
 <div class="card shadow-sm">
   <div class="card-body p-4">
-    {{if not .SignupsOpen}}<p class="text-secondary small mb-3">{{t "landing.signups_closed_signin"}} <a href="/#notify">{{t "landing.notify.cta"}}</a></p>{{end}}
+    {{if not .SignupsOpen}}<p class="text-secondary small mb-3">{{t "landing.signups_closed_signin"}}</p>{{end}}
     {{if .SignInFailed}}<div class="alert alert-danger py-2 small">{{t "landing.signin_failed"}}</div>{{end}}
     {{if .GoogleEnabled}}
       <a class="btn btn-dark btn-lg w-100" href="/auth/google{{if or .Return .OAuthRequest}}?{{if .Return}}return={{.Return}}{{end}}{{if .OAuthRequest}}{{if .Return}}&amp;{{end}}oauth={{.OAuthRequest}}{{end}}{{end}}">{{t "landing.cta"}}</a>

@@ -4,7 +4,7 @@
 
 The site is always private. The owner can mint secret links that grant read and write access to exactly one document, without an account or an MCP connection. Every change is an immutable revision. Writes use compare-and-swap on the revision number, so a stale write from any client fails instead of overwriting someone else's edit. tmp does not research, generate text, or run a model; the connected AI does that.
 
-tmp is open source under the [MIT license](LICENSE). Run it yourself with Docker or as one Go binary beside PostgreSQL (see Run it, [docs/DOCKER.md](docs/DOCKER.md) and [docs/SETUP.md](docs/SETUP.md)), or use the hosted service at [tmp.io](https://tmp.io) when it opens. Security reports: [SECURITY.md](SECURITY.md). Hosted-service [privacy](docs/PRIVACY.md) and [terms](docs/TERMS.md).
+tmp is open source under the [MIT license](LICENSE). Run it yourself with Docker or as one Go binary beside PostgreSQL (see Run it, [docs/DOCKER.md](docs/DOCKER.md) and [docs/SETUP.md](docs/SETUP.md)), or use the hosted service at [tmp.io](https://tmp.io) when it opens. Security reports: [SECURITY.md](SECURITY.md). 
 
 ## Project configuration
 
@@ -30,12 +30,12 @@ internal/middleware/        request ID, logging, security headers, session, bear
 internal/models/            domain logic: paths, filesystem operations, share grants, credentials, tmp.yaml, export
 internal/platform/          config, db (RLS scoping), errors, auth (Google OIDC), render (Markdown), i18n, obs, ratelimit
 internal/assets/            embedded templates (views/) and static files (static/)
-migrations/                 goose SQL, 00001_platform through 00010_local_owner (also embedded in the binary)
+migrations/                 goose SQL, 00001_platform through 00012 (also embedded in the binary)
 scripts/                    e2e.sh (10-step core proof), loadcheck.sh (bounded load check), screenshots.mjs (visual checks)
 install.sh                  one-command installer for a fresh Debian or Ubuntu server
 config/local.env.example    every environment variable with a development default
 blueprint/                  architecture blueprint (submodule, do not edit)
-docs/                       DOCKER, SETUP, RUNBOOK, FORMAT, API, MCP, SHARING, SECURITY, PRIVACY, TERMS
+docs/                       DOCKER, SETUP, RUNBOOK, FORMAT, API, MCP, SHARING, SECURITY
 ```
 
 ## Run it
@@ -117,8 +117,7 @@ Open http://localhost:8000. With `DEV_LOGIN_BYPASS=1` (the example default) the 
 | [docs/MCP.md](docs/MCP.md) | endpoint, discovery, OAuth flow, the ten tools, error codes, agent workflow, client setup, compatibility record |
 | [docs/SHARING.md](docs/SHARING.md) | secret-link model and HTTP contract |
 | [docs/SECURITY.md](docs/SECURITY.md) | threat model and controls, data at rest, what leaves the server |
-| [docs/PRIVACY.md](docs/PRIVACY.md) | what the hosted service stores and shares (draft) |
-| [docs/TERMS.md](docs/TERMS.md) | hosted service terms (draft) |
+| [docs/DOCKER.md](docs/DOCKER.md) | self-hosting, updates, backups, publishing your own front page |
 | [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) | acceptance criteria A1 to A17 mapped to tests, scripts and manual checks |
 
 ## Verification status

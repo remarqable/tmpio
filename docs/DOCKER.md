@@ -200,6 +200,35 @@ roll back across a migration, restore the dump from before the update.
 Automatic updaters such as Watchtower work, but for something holding your
 writing it is better to pull deliberately, after a backup.
 
+## Publishing your own front page
+
+An instance shows a plain sign-in page to strangers. Put static files in
+`/opt/tmp/web` and they are served instead, at the same address:
+
+```bash
+rsync -av --delete ./site/ root@your-server:/opt/tmp/web/
+```
+
+Nothing restarts; the server reads from disk per request. `index.html` answers
+`/`, `about.html` or `about/index.html` answers `/about`, and `robots.txt`,
+`sitemap.xml`, `favicon.ico` and `llms.txt` are served from here when present.
+
+What is never shadowed, however you name a file: `/login`, `/s/<token>`,
+`/mcp`, `/api`, `/admin`, `/.well-known`, and anything at all for a visitor who
+is signed in — an owner always gets their own site at `/`.
+
+Two things follow from these files sharing an origin with the application:
+
+- **Script here runs as your instance** and can act on behalf of a signed-in
+  visitor. Write access to that directory is equivalent to deploy access to the
+  application. Do not paste third-party snippets in without deciding that.
+- **The application's strict Content-Security-Policy applies**, which blocks
+  inline scripts and third-party origins. Build without them, or set
+  `PUBLIC_SITE_CSP` deliberately.
+
+Leave the directory empty and the built-in sign-in page answers, which is what
+a private instance wants.
+
 ## Backup and restore
 
 The database volume holds everything: content, revisions, images, tokens,

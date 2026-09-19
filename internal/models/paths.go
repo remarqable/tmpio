@@ -29,6 +29,11 @@ const (
 
 // reservedRoot lists first path segments owned by the platform. A source or
 // rendered path whose first segment matches one of these can never be created.
+// IsReservedRoot reports whether a first path segment belongs to the platform.
+// Anything it covers is answered by the application and can never be shadowed
+// by tenant content or by an operator's static files.
+func IsReservedRoot(seg string) bool { return reservedRoot[seg] }
+
 var reservedRoot = map[string]bool{
 	"s": true, "app": true, "auth": true, "oauth": true, "api": true, "mcp": true,
 	".well-known": true, "static": true, "healthz": true, "readyz": true, "robots.txt": true,

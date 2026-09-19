@@ -79,6 +79,16 @@ type Config struct {
 	// trusted without being in front of the server hands any caller the ability
 	// to claim an address. Empty means trust nobody and use the peer address.
 	TrustedProxies []string
+	// PublicSiteDir, when set, is a directory of static files served to
+	// anonymous visitors before the built-in pages. It lets an operator put
+	// their own front page on the instance without the application knowing
+	// anything about its contents.
+	PublicSiteDir string
+	// PublicSiteCSP replaces the Content-Security-Policy on those files only.
+	// Empty keeps the application's policy, which is strict: a marketing page
+	// that wants an inline script or a third-party font has to say so here,
+	// deliberately, because those files run on the application's origin.
+	PublicSiteCSP string
 	// AutoMigrate runs the embedded migrations as the owner role at startup.
 	// On by default in a container, where no operator can run goose by hand.
 	AutoMigrate bool
@@ -150,6 +160,8 @@ func Load() (*Config, error) {
 		OwnerPassword:      os.Getenv("OWNER_PASSWORD"),
 		AutoMigrate:        truthy(getEnv("AUTO_MIGRATE", "0")),
 		TrustedProxies:     parseList(getEnv("TRUSTED_PROXIES", "127.0.0.1,::1")),
+		PublicSiteDir:      strings.TrimRight(os.Getenv("PUBLIC_SITE_DIR"), "/"),
+		PublicSiteCSP:      os.Getenv("PUBLIC_SITE_CSP"),
 		AI: AI{
 			APIKey:          os.Getenv("ANTHROPIC_API_KEY"),
 			WorkspaceID:     os.Getenv("AI_WORKSPACE_ID"),
