@@ -118,28 +118,14 @@ Open http://localhost:8000. With `DEV_LOGIN_BYPASS=1` (the example default) the 
 | [docs/SHARING.md](docs/SHARING.md) | secret-link model and HTTP contract |
 | [docs/SECURITY.md](docs/SECURITY.md) | threat model and controls, data at rest, what leaves the server |
 | [docs/DOCKER.md](docs/DOCKER.md) | self-hosting, updates, backups, publishing your own front page |
-| [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md) | acceptance criteria A1 to A17 mapped to tests, scripts and manual checks |
-
-## Verification status
-
-Details and the criterion-by-criterion evidence are in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
-
-- Unit, PostgreSQL integration, HTTP and MCP tests pass locally on PostgreSQL 16 (`make test`, which runs `go test ./... -race -count=1 -p 1` against `tmp_test`). Integration tests run as the `app_user` runtime role and cover RLS in four directions, compare-and-swap writes, concurrency, moves, sharing, quotas, export and OAuth.
-- `scripts/e2e.sh` runs the ten-step core proof against a running dev server with the `local-test` OAuth client: 31 of 31 checks pass locally.
-- `scripts/loadcheck.sh` seeds pages through REST and measures p50/p95 for concurrent reads and writes. `scripts/screenshots.mjs` captures headless Chrome screenshots (needs Google Chrome on macOS and Node 22 or newer).
-- Visual checks were performed in Chrome on both themes (`docs`, `editorial`), light and dark appearance, and a mobile viewport.
-- Real Claude Desktop and ChatGPT Desktop connections are BLOCKED pending a public HTTPS origin and Google OAuth credentials. Only the scripted local client was exercised against `/mcp`.
-- A backup and restore drill was performed on 2026-09-18 on the local cluster (see [docs/RUNBOOK.md](docs/RUNBOOK.md)).
 
 ## Status and known limitations
 
-This is an early build. Development runs against a project-local PostgreSQL 16 cluster on port 5433; production runs as one binary under systemd behind Caddy with a managed PostgreSQL.
+This is an early build. It runs as one Go binary against PostgreSQL, in a container or under whatever supervisor you prefer, behind a reverse proxy that terminates TLS.
 
-**The hosted service at tmp.io is not open yet.** It runs with `SIGNUPS_ENABLED=0`: existing accounts sign in, a first sign-in is refused, and the landing page collects email addresses for a launch announcement. Self-hosting is available today and is the supported path for anyone whose threat model includes the operator.
+**The hosted service at tmp.io is not open yet.** Self-hosting works today and is the supported path for anyone whose threat model includes the operator.
 
-**Client testing is blocked.** Real Claude Desktop and ChatGPT Desktop connections were not exercised. Both vendors connect from their cloud, so this server needs a public HTTPS origin and real Google OAuth credentials before either can be tested. Only the built-in `local-test` style OAuth client (registered through `OAUTH_CLIENTS_JSON`) and curl were exercised against the MCP endpoint. See the compatibility record in [docs/MCP.md](docs/MCP.md).
-
-**Explicitly deferred** (specification section 2): custom domains and vanity subdomains; billing; public marketplace registration; teams and invitations; ownership transfer; multiple sites per account; public sites; read-only sharing links; separate draft/publish branches; bulk directory moves and deletes; scheduled publishing; RSS/feed; WYSIWYG or block editing; arbitrary HTML/CSS/JS; SVG uploads; embeds and iframes; plugin or theme marketplaces; real-time collaboration; semantic or vector search; Git sync; ZIP import; an internal LLM; CDN caching of user pages; separate object storage.
+**Client setup is documented but lightly exercised.** The MCP endpoint has been driven end to end against a public HTTPS origin — dynamic client registration, an OAuth grant with PKCE, and a write — but the vendor connector interfaces themselves have had little use. See the compatibility record in [docs/MCP.md](docs/MCP.md).
 
 **Other limitations in this build**
 
@@ -147,14 +133,6 @@ This is an early build. Development runs against a project-local PostgreSQL 16 c
 - There is no operator purge command for revision history; see the runbook.
 - Content is not end-to-end encrypted; see docs/SECURITY.md "Data at rest".
 - Directory history and restore are not supported; empty directories are recreated instead.
-
-## Blueprint compliance
-
-An independent review against the blueprint (2026-09-18) found no Critical issues; the fixes and the deliberately kept deviations are recorded at the end of `docs/ACCEPTANCE.md`. `make check` enforces the layering rules the review relied on.
-
-## Screenshots
-
-Headless Chrome captures from the visual check (2026-09-18) are in `docs/screenshots/`: docs theme light and dark, editorial theme, mobile width, dashboard, content browser, editor, history, sharing management, and the shared document page and editor. Regenerate them with `node scripts/screenshots.mjs`.
 
 ## Owner UI
 
