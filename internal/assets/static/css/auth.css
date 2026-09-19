@@ -1,0 +1,170 @@
+/* Pages you see before you are inside: sign-in, consent, auth errors.
+ *
+ * Near-black, pure neutrals, no accent colour. Depth comes from borders only,
+ * which is what reads on a dark surface — shadows mostly disappear. One white
+ * button carries the primary action; everything else is grey doing structure.
+ * Spacing is on a 4px grid throughout. */
+
+:root {
+  --bg: #08090a;
+  --surface: #0e0f11;
+  --surface-2: #0a0b0c;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --fg: #ededef;
+  --fg-2: #a0a0a8;
+  --fg-3: #6b6b74;
+  --danger: #f0736a;
+  --danger-bg: rgba(240, 115, 106, 0.08);
+  --radius: 12px;
+  --radius-sm: 8px;
+  --ease: cubic-bezier(0.25, 1, 0.5, 1);
+  --sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body { height: 100%; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  /* Column flex rather than grid: with `place-items: center` the single grid
+   * column sizes to the item's max-content and overflows a narrow viewport. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: 32px 16px;
+}
+
+.auth-shell { width: 100%; max-width: 380px; min-width: 0; }
+.auth-shell-wide { max-width: 520px; }
+
+/* Wordmark */
+.auth-brand { text-align: center; margin-bottom: 24px; }
+.auth-mark {
+  font-size: 28px;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--fg);
+  text-decoration: none;
+}
+.auth-mark span { color: var(--fg-3); }
+.auth-tagline { margin: 6px 0 0; font-size: 13px; color: var(--fg-3); }
+
+/* The card */
+.auth-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 32px;
+}
+
+.auth-title { margin: 0 0 8px; font-size: 16px; font-weight: 600; letter-spacing: -0.01em; }
+.auth-text { margin: 0 0 16px; font-size: 13px; color: var(--fg-2); }
+.auth-text:last-child { margin-bottom: 0; }
+
+/* Fields */
+.auth-field { margin-bottom: 16px; }
+.auth-field label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--fg-2);
+}
+.auth-input {
+  width: 100%;
+  padding: 10px 12px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--fg);
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  transition: border-color 150ms var(--ease), background 150ms var(--ease);
+}
+.auth-input::placeholder { color: var(--fg-3); }
+.auth-input:hover { border-color: var(--line-strong); }
+.auth-input:focus {
+  outline: none;
+  border-color: var(--fg-3);
+  background: var(--bg);
+}
+
+/* Buttons: one white primary, everything else bordered */
+.auth-btn, .auth-btn-ghost {
+  display: block;
+  width: 100%;
+  padding: 10px 16px;
+  font: inherit;
+  font-size: 14px;
+  font-weight: 550;
+  text-align: center;
+  text-decoration: none;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: background 150ms var(--ease), border-color 150ms var(--ease), opacity 150ms var(--ease);
+}
+.auth-btn { color: #0a0a0a; background: var(--fg); border: 1px solid var(--fg); }
+.auth-btn:hover { background: #fff; border-color: #fff; }
+.auth-btn-ghost { color: var(--fg); background: transparent; border: 1px solid var(--line-strong); }
+.auth-btn-ghost:hover { background: var(--surface-2); border-color: var(--fg-3); }
+.auth-btn:focus-visible, .auth-btn-ghost:focus-visible { outline: 2px solid var(--fg-3); outline-offset: 2px; }
+
+.auth-actions { display: flex; gap: 8px; }
+.auth-actions .auth-btn, .auth-actions .auth-btn-ghost { width: auto; flex: 1; }
+
+/* "or" between two sign-in methods */
+.auth-or {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0;
+  font-size: 12px;
+  color: var(--fg-3);
+}
+.auth-or::before, .auth-or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* Notices */
+.auth-note {
+  padding: 10px 12px;
+  margin-bottom: 16px;
+  font-size: 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--fg-2);
+}
+.auth-note-error { border-color: rgba(240, 115, 106, 0.28); background: var(--danger-bg); color: var(--danger); }
+
+/* Footer line */
+.auth-foot { margin: 20px 0 0; text-align: center; font-size: 12px; color: var(--fg-3); }
+.auth-foot a { color: var(--fg-3); text-decoration: none; transition: color 150ms var(--ease); }
+.auth-foot a:hover { color: var(--fg-2); text-decoration: underline; text-underline-offset: 3px; }
+
+/* Data-ish bits on the consent screen */
+code { font-family: var(--mono); font-size: 12px; color: var(--fg-2); }
+.auth-scopes { margin: 0; padding: 0; list-style: none; }
+.auth-scopes li {
+  display: flex;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 13px;
+  color: var(--fg-2);
+  border-top: 1px solid var(--line);
+}
+.auth-scopes li:last-child { border-bottom: 1px solid var(--line); }
+.auth-scopes code { flex: 0 0 auto; color: var(--fg); }
+
+/* The development sign-in, which only exists when DEV_LOGIN_BYPASS is set */
+.auth-dev { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+.auth-dev .auth-field { margin-bottom: 12px; }
+.auth-hint { margin: 12px 0 0; font-size: 12px; color: var(--fg-3); }

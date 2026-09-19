@@ -1,15 +1,11 @@
 {{define "content"}}
-<div class="row justify-content-center">
-  <div class="col-lg-5">
-    {{if .ClientName}}<div class="alert alert-info">{{t "landing.signin_authorize" "client" .ClientName}}</div>{{end}}
-    <div class="text-center mb-4">
-      <div class="display-6 fw-bold">tmp<span class="text-secondary">.</span></div>
-      <p class="text-secondary mb-0">{{t "app.tagline"}}</p>
-    </div>
-    {{template "partials/_signin.html" .}}
-    <p class="text-center text-secondary small mt-3 mb-0">
-      <a href="{{.SourceURL}}" rel="noopener">{{t "landing.foot.source"}}</a>
-    </p>
+<div class="auth-shell">
+  <div class="auth-brand">
+    <a class="auth-mark" href="/">tmp<span>.</span></a>
+    <p class="auth-tagline">{{t "app.tagline"}}</p>
   </div>
+  {{if .ClientName}}<div class="auth-note">{{t "landing.signin_authorize" "client" .ClientName}}</div>{{end}}
+  {{template "partials/_signin.html" .}}
+  <p class="auth-foot"><a href="{{.SourceURL}}" rel="noopener">{{t "landing.foot.source"}}</a></p>
 </div>
 {{end}}
