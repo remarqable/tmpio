@@ -82,3 +82,29 @@ func InstanceHasOwner(ctx context.Context) (bool, error) {
 	err := db.Get().WithContext(ctx).Model(&User{}).Count(&n).Error
 	return n > 0, err
 }
+
+// InstanceAI is the operator's model configuration.
+type InstanceAI struct {
+	APIKey      string
+	Model       string
+	BaseURL     string
+	WorkspaceID string
+}
+
+// SeedInstanceAIFromEnv stores the environment's key when nothing is stored
+// yet, and reports whether it did. It never overwrites a key set through the
+// settings page: the environment is a starting point, not an authority, or
+// changing the key in the product would last only until the next restart.
+func SeedInstanceAIFromEnv(ctx context.Context, in InstanceAI) (bool, error) {
+	if in.APIKey == "" {
+		return false, nil
+	}
+	current, err := GetInstanceSetting(ctx)
+	if err != nil {
+		return false, err
+	}
+	if current.AIAPIKey != "" {
+		return false, nil
+	}
+	return true, SaveInstanceAI(ctx, in.APIKey, in.Model, in.BaseURL, in.WorkspaceID)
+}

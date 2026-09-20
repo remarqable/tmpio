@@ -113,11 +113,25 @@ func main() {
 		return ai.Settings{APIKey: s.AIAPIKey, Model: s.AIModel, BaseURL: s.AIBaseURL, WorkspaceID: s.AIWorkspaceID}, nil
 	})
 	ops.AI = resolver
+	// ANTHROPIC_API_KEY seeds the stored setting once, so an instance
+	// configured by environment keeps working and the settings page can still
+	// change the key afterwards.
 	if resolver.EnvConfigured() {
-		log.Info().Str("model", cfg.AI.Model).Msg("ai filing: key from the environment")
-	} else {
-		log.Info().Msg("ai filing: no key in the environment; the instance settings page decides")
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		seeded, err := models.SeedInstanceAIFromEnv(ctx, models.InstanceAI{
+			APIKey:      cfg.AI.APIKey,
+			Model:       cfg.AI.Model,
+			BaseURL:     cfg.AI.BaseURL,
+			WorkspaceID: cfg.AI.WorkspaceID,
+		})
+		cancel()
+		if err != nil {
+			log.Warn().Err(err).Msg("ai filing: could not store the key from the environment")
+		} else if seeded {
+			log.Info().Msg("ai filing: stored the key from ANTHROPIC_API_KEY; change it in Server settings")
+		}
 	}
+	log.Info().Bool("configured", resolver.Enabled(context.Background())).Msg("ai filing")
 	deps := &controllers.Deps{Cfg: cfg, Ops: ops, Google: auth.NewGoogle(cfg), Tmpl: tmpl}
 	mcpServer := tmpmcp.New(cfg, ops)
 

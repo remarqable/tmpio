@@ -111,3 +111,28 @@ func TestLocalOwnerAdministersTheInstance(t *testing.T) {
 	require.Equal(t, 200, res.StatusCode, "the instance administrator reaches the settings")
 	require.Contains(t, body, `action="/admin/server/ai"`)
 }
+
+// The settings page must never show a key it refuses to edit: an environment
+// variable seeds the stored key once and the page owns it from then on.
+func TestEnvironmentSeedsTheKeyThenThePageOwnsIt(t *testing.T) {
+	newHarness(t)
+	ctx := t.Context()
+
+	seeded, err := models.SeedInstanceAIFromEnv(ctx, models.InstanceAI{APIKey: "sk-ant-from-env", Model: "claude-haiku-4-5-20251001"})
+	require.NoError(t, err)
+	require.True(t, seeded, "an empty store takes the environment's key")
+
+	set, err := models.GetInstanceSetting(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "sk-ant-from-env", set.AIAPIKey)
+
+	// A key set through the page survives the next startup.
+	require.NoError(t, models.SaveInstanceAI(ctx, "sk-ant-typed-in", "claude-haiku-4-5-20251001", "", ""))
+	seeded, err = models.SeedInstanceAIFromEnv(ctx, models.InstanceAI{APIKey: "sk-ant-from-env"})
+	require.NoError(t, err)
+	require.False(t, seeded, "seeding must not overwrite a key the operator set")
+
+	set, err = models.GetInstanceSetting(ctx)
+	require.NoError(t, err)
+	require.Equal(t, "sk-ant-typed-in", set.AIAPIKey, "the stored key wins over the environment")
+}

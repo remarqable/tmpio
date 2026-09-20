@@ -247,9 +247,9 @@ func (d *Deps) AdminServer(c *gin.Context) {
 	sv.Title = i18n.T("en", "server.title")
 	d.render(c, http.StatusOK, "pages/admin/server.html", "layout/site", gin.H{
 		"Site": sv,
-		// The environment wins when it carries a key, so say that plainly
-		// rather than showing a field that cannot take effect.
-		"EnvManaged":  d.Cfg.AI.Enabled(),
+		// The environment only seeds the stored key, so the field is always
+		// editable; say where the current one came from and leave it at that.
+		"FromEnv":     d.Cfg.AI.APIKey != "" && d.Cfg.AI.APIKey == set.AIAPIKey,
 		"HasKey":      set.AIAPIKey != "",
 		"KeyHint":     keyHint(set.AIAPIKey),
 		"Model":       firstNonEmpty(set.AIModel, d.Cfg.AI.Model),
@@ -264,10 +264,6 @@ func (d *Deps) AdminServer(c *gin.Context) {
 // discovered later as filing that quietly stopped being intelligent.
 func (d *Deps) AdminServerAI(c *gin.Context) {
 	if _, ok := d.instanceAdmin(c); !ok {
-		return
-	}
-	if d.Cfg.AI.Enabled() {
-		d.flashFail(c, errors.New(errors.CodeForbidden, i18n.T("en", "server.ai_env_managed")), "/admin/server")
 		return
 	}
 	ctx := c.Request.Context()

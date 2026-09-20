@@ -19,11 +19,11 @@ type Settings struct {
 
 // Resolver is a Completer that decides which credentials to use per call.
 //
-// The environment wins when it carries a key. A hosted deployment sets
-// ANTHROPIC_API_KEY and its operators cannot change it through a web form; a
-// self-hosted one leaves the variable unset and manages the key in the
-// settings page. Making the environment authoritative keeps that precedence
-// visible rather than surprising.
+// The stored setting wins. ANTHROPIC_API_KEY seeds it once at startup when
+// nothing is stored, so an instance configured by environment keeps working,
+// but from then on the settings page is the one place the key lives and the
+// one place it changes. A page that shows a key it refuses to edit is worse
+// than no page.
 type Resolver struct {
 	env  config.AI
 	load func(ctx context.Context) (Settings, error)
@@ -39,28 +39,38 @@ func NewResolver(env config.AI, load func(ctx context.Context) (Settings, error)
 	return &Resolver{env: env, load: load}
 }
 
-// EnvConfigured reports whether the environment supplies the key, which the
-// settings page shows so nobody edits a field that cannot take effect.
+// EnvConfigured reports whether the environment carries a key, which startup
+// uses to decide whether to seed the store.
 func (r *Resolver) EnvConfigured() bool { return r.env.Enabled() }
+
+// EnvSettings are the credentials the environment supplies, for seeding.
+func (r *Resolver) EnvSettings() Settings {
+	return Settings{APIKey: r.env.APIKey, Model: r.env.Model, BaseURL: r.env.BaseURL, WorkspaceID: r.env.WorkspaceID}
+}
 
 // settings resolves the credentials for this call.
 func (r *Resolver) settings(ctx context.Context) Settings {
-	if r.env.Enabled() {
-		return Settings{APIKey: r.env.APIKey, Model: r.env.Model, BaseURL: r.env.BaseURL, WorkspaceID: r.env.WorkspaceID}
+	var s Settings
+	if r.load != nil {
+		loaded, err := r.load(ctx)
+		if err == nil {
+			s = loaded
+		}
 	}
-	if r.load == nil {
-		return Settings{}
+	// Nothing stored yet: fall back to the environment, which is also what
+	// seeds the store on the next startup.
+	if s.APIKey == "" {
+		s.APIKey = r.env.APIKey
 	}
-	s, err := r.load(ctx)
-	if err != nil {
-		return Settings{}
-	}
-	// The environment still supplies the defaults the operator did not set.
+	// The environment supplies the defaults the operator did not set.
 	if s.Model == "" {
 		s.Model = r.env.Model
 	}
 	if s.BaseURL == "" {
 		s.BaseURL = r.env.BaseURL
+	}
+	if s.WorkspaceID == "" {
+		s.WorkspaceID = r.env.WorkspaceID
 	}
 	return s
 }
