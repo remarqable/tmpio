@@ -32,7 +32,6 @@ dc() { docker compose "$@"; }
 
 # The image carries its own version as an OCI label, so an instance can say
 # what it is without exposing that on a public endpoint.
-image_ref() { dc config --images 2>/dev/null | head -1; }
 label_version() {
   docker image inspect "$1" \
     --format '{{index .Config.Labels "org.opencontainers.image.version"}}' 2>/dev/null \
@@ -65,29 +64,27 @@ wait_healthy() {
 }
 
 cmd_update() {
-  local before after ref
+  local before after
   before=$(running_version)
   printf 'running   %s\n' "${BOLD}${before}${NC}"
+
   printf '%spulling…%s\n' "$DIM" "$NC"
-  dc pull -q 2>/dev/null || dc pull
+  dc pull
 
-  ref=$(image_ref)
-  after=$(label_version "$ref")
-  after=${after:-unknown}
-
-  if [ "$before" = "$after" ] && [ "$before" != "not running" ]; then
-    printf 'already on %s — nothing to do\n' "${BOLD}${after}${NC}"
-    return 0
-  fi
-
-  printf '%sstarting %s…%s\n' "$DIM" "$after" "$NC"
+  # `up -d` leaves the container alone when the image did not change, so it
+  # is safe to run either way and the version afterwards tells the truth.
   dc up -d
-  if wait_healthy; then
-    printf 'now on    %s %s(was %s)%s\n' "${BOLD}$(running_version)${NC}" "$DIM" "$before" "$NC"
-  else
+  wait_healthy || {
     printf '%sthe app did not come up healthy. Recent log:%s\n' "$RED" "$NC" >&2
     dc logs --tail 40 app >&2
     exit 1
+  }
+
+  after=$(running_version)
+  if [ "$before" = "$after" ]; then
+    printf 'already on %s — nothing to do\n' "${BOLD}${after}${NC}"
+  else
+    printf 'now on    %s %s(was %s)%s\n' "${BOLD}${after}${NC}" "$DIM" "$before" "$NC"
   fi
 }
 
