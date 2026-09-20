@@ -4,7 +4,7 @@ PG_DATA?=data/pg16
 PG_PORT?=5433
 ENV?=config/local.env
 
-.PHONY: update reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
+.PHONY: installer-smoke update reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
 
 deploy: ## Legacy bare-binary deploy (refuses a host running the container image; see scripts/deploy.sh)
 	@test -f config/deploy.env || { echo "create config/deploy.env from config/deploy.env.example"; exit 1; }
@@ -116,3 +116,15 @@ vulncheck: ## Report known vulnerabilities in the dependency graph that this cod
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 ci: fmt vet build check test
+
+installer-smoke: ## The installer must survive being run as the installed copy
+	@set -e; \
+	T=$$(mktemp -d); cp install.sh $$T/install.sh; chmod 0755 $$T/install.sh; \
+	before=$$(wc -c < $$T/install.sh); \
+	TMP_NO_SELF_UPDATE=1 bash $$T/install.sh --help >/dev/null; \
+	after=$$(wc -c < $$T/install.sh); \
+	[ "$$before" = "$$after" ] || { echo "install.sh changed size when run ($$before -> $$after)"; exit 1; }; \
+	[ "$$after" -gt 0 ] || { echo "install.sh truncated itself"; exit 1; }; \
+	TMP_NO_SELF_UPDATE=1 bash $$T/install.sh --no-self-update >/dev/null 2>&1 || true; \
+	[ "$$(wc -c < $$T/install.sh)" -gt 0 ] || { echo "install.sh truncated itself on a flag-only run"; exit 1; }; \
+	rm -rf $$T; echo "installer survives running as the installed copy"

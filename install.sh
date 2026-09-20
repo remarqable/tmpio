@@ -35,10 +35,16 @@ WITH_CADDY=1
 WITH_FIREWALL=1
 DRY_RUN=0
 
-RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; DIM=$'\033[2m'; BOLD=$'\033[1m'; NC=$'\033[0m'
+# Colour only when stdout is a terminal that wants it. Piped into a file, a
+# pager or `head`, these would otherwise arrive as literal [1m noise.
+if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
+  RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; DIM=$'\033[2m'; NC=$'\033[0m'
+else
+  RED=""; GREEN=""; DIM=""; NC=""
+fi
 
 say()  { printf '%s\n' "$*"; }
-step() { printf '\n%s==>%s %s%s%s\n' "$GREEN" "$NC" "$BOLD" "$*" "$NC"; }
+step() { printf '\n%s==>%s %s\n' "$GREEN" "$NC" "$*"; }
 note() { printf '%s    %s%s\n' "$DIM" "$*" "$NC"; }
 die()  { printf '\n%serror:%s %s\n' "$RED" "$NC" "$*" >&2; exit 1; }
 
@@ -147,7 +153,7 @@ wait_healthy() {
 manage_update() {
   local before after
   before=$(running_version)
-  say "  running   ${BOLD}${before}${NC}"
+  say "  ${DIM}running${NC}   ${before}"
   say "  ${DIM}pulling…${NC}"
   docker compose pull -q 2>/dev/null || docker compose pull
 
@@ -162,14 +168,14 @@ manage_update() {
 
   after=$(running_version)
   if [ "$before" = "$after" ]; then
-    say "  already on ${BOLD}${after}${NC} — nothing to do"
+    say "  already on ${after} ${DIM}— nothing to do${NC}"
   else
-    say "  now on    ${BOLD}${after}${NC} ${DIM}(was ${before})${NC}"
+    say "  ${DIM}now on${NC}    ${after} ${DIM}(was ${before})${NC}"
   fi
 }
 
 manage_status() {
-  say "  version   ${BOLD}$(running_version)${NC}"
+  say "  ${DIM}version${NC}   $(running_version)"
   say "  directory ${DIR}"
   say ""
   docker compose ps
@@ -179,14 +185,14 @@ manage_status() {
 menu() {
   cd "$DIR"
   say ""
-  say "  ${BOLD}tmp${NC} is installed in ${DIR}"
+  say "  tmp is installed in ${DIR}"
   say ""
   manage_status
   say ""
-  say "  ${DIM}$0 update     pull the current image and restart onto it${NC}"
-  say "  ${DIM}$0 status     this${NC}"
-  say "  ${DIM}$0 logs       follow the server log${NC}"
-  say "  ${DIM}$0 restart    restart without changing version${NC}"
+  say "  $0 update     ${DIM}pull the current image and restart onto it${NC}"
+  say "  $0 status     ${DIM}running, healthy, which version${NC}"
+  say "  $0 logs       ${DIM}follow the server log${NC}"
+  say "  $0 restart    ${DIM}restart without changing version${NC}"
   say ""
   say "  ${DIM}To reconfigure (domain, port, proxy) pass the flags: --help${NC}"
   say ""
@@ -259,11 +265,17 @@ COMPOSE
 # Subcommands come first: on a machine that already has tmp, the common verbs
 # should not require remembering install flags, and a bare run should not
 # reinstall anything by surprise.
-for a in "$@"; do [ "$a" = "--no-self-update" ] && TMP_NO_SELF_UPDATE=1; done
+CONFIG_ARGS=0
+for a in "$@"; do
+  case "$a" in
+    --no-self-update) TMP_NO_SELF_UPDATE=1 ;;
+    *) CONFIG_ARGS=$((CONFIG_ARGS + 1)) ;;
+  esac
+done
 self_update "$@"
 
 BARE_RUN=0
-[ $# -eq 0 ] && BARE_RUN=1
+[ "$CONFIG_ARGS" -eq 0 ] && BARE_RUN=1
 
 SUBCOMMAND=""
 case "${1:-}" in
@@ -381,7 +393,7 @@ else
   # to bash leaves stdin holding the script, so the question goes to /dev/tty.
   if [ -z "$PASSWORD" ] && [ -r /dev/tty ]; then
     while : ; do
-      printf '\n%sSet the password for %s%s\n' "$BOLD" "$OWNER" "$NC" > /dev/tty
+      printf '\n%sSet the password for %s%s\n' "" "$OWNER" "" > /dev/tty
       stty -echo < /dev/tty 2>/dev/null || true
       printf '  password (at least 12 characters, or blank to generate one): ' > /dev/tty
       read -r PASSWORD < /dev/tty || true
@@ -473,13 +485,26 @@ fi
 step "This script"
 # curl|bash leaves nothing behind, so keep a copy where the install is. That
 # copy is what you run later for update, status and logs.
-if [ -f "$0" ] && [ "$0" != "${DIR}/install.sh" ]; then
-  cp "$0" "${DIR}/install.sh"
+#
+# `-ef` compares inodes rather than paths: if this IS the installed copy,
+# there is nothing to do. Writing it to itself truncates the file the shell
+# is still reading, which empties the script mid-run.
+if [ -f "$0" ] && [ "$0" -ef "${DIR}/install.sh" ]; then
+  note "already running the copy at ${DIR}/install.sh"
+elif [ -f "$0" ]; then
+  cp -f "$0" "${DIR}/install.sh"
+  chmod 0755 "${DIR}/install.sh"
+  note "kept a copy at ${DIR}/install.sh (run it with no arguments to see what it can do)"
+elif curl -fsSL --max-time 20 "$RAW_URL" -o "${DIR}/install.sh.part" 2>/dev/null \
+     && [ -s "${DIR}/install.sh.part" ] && bash -n "${DIR}/install.sh.part" 2>/dev/null; then
+  # Piped from curl: there is no file to copy, so fetch one.
+  mv -f "${DIR}/install.sh.part" "${DIR}/install.sh"
+  chmod 0755 "${DIR}/install.sh"
+  note "kept a copy at ${DIR}/install.sh (run it with no arguments to see what it can do)"
 else
-  cat "$0" > "${DIR}/install.sh" 2>/dev/null || true
+  rm -f "${DIR}/install.sh.part"
+  note "could not save a copy here; fetch one with: curl -fsSL ${RAW_URL} -o ${DIR}/install.sh"
 fi
-chmod 0755 "${DIR}/install.sh" 2>/dev/null || true
-note "kept a copy at ${DIR}/install.sh (run it with no arguments to see what it can do)"
 
 step "Starting"
 cd "$DIR"
@@ -505,23 +530,23 @@ fi
 
 step "Ready"
 say ""
-say "  ${BOLD}https://${DOMAIN}${NC}"
+say "  ${GREEN}https://${DOMAIN}${NC}"
 say ""
 if [ "${GENERATED:-0}" -eq 1 ]; then
-  say "  username  ${OWNER}"
-  say "  password  ${BOLD}${PASSWORD}${NC}"
+  say "  ${DIM}username${NC}  ${OWNER}"
+  say "  ${DIM}password${NC}  ${PASSWORD}"
   say ""
   say "  ${DIM}That password is stored in ${ENV_FILE}. Change it by editing${NC}"
   say "  ${DIM}OWNER_PASSWORD there and running: cd ${DIR} && docker compose up -d${NC}"
 elif [ "$EXISTING" -eq 1 ]; then
   say "  ${DIM}Existing install updated. Sign-in details are unchanged.${NC}"
 else
-  say "  username  ${OWNER}"
+  say "  ${DIM}username${NC}  ${OWNER}"
   say "  ${DIM}password as you set it${NC}"
 fi
 say ""
-say "  ${DIM}update   ${DIR}/install.sh update${NC}"
-say "  ${DIM}status   ${DIR}/install.sh status${NC}"
-say "  ${DIM}logs     ${DIR}/install.sh logs${NC}"
+say "  ${DIM}update${NC}   ${DIR}/install.sh update"
+say "  ${DIM}status${NC}   ${DIR}/install.sh status"
+say "  ${DIM}logs${NC}     ${DIR}/install.sh logs"
 say "  ${DIM}backup   docs/DOCKER.md${NC}"
 say ""
