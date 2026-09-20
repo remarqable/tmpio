@@ -67,25 +67,30 @@ docker compose up -d
 
 Sign in with the address and password you set.
 
-### Updating
+### Updating and maintenance
 
-The installer puts a `tmp` command on the host:
+The installer keeps a copy of itself at `/opt/tmp/install.sh`. That copy is
+the one command you need afterwards:
 
 ```bash
-tmp update     # pull the current image and restart onto it
-tmp status     # running, healthy, and which version
-tmp logs       # follow the server log
+/opt/tmp/install.sh            # what is installed here, and what you can do
+/opt/tmp/install.sh update     # pull the current image and restart onto it
+/opt/tmp/install.sh status     # running, healthy, which version
+/opt/tmp/install.sh logs       # follow the server log
 ```
 
-`tmp update` prints the version before and after, so you can tell a real
-update from a no-op, and it waits for the container's health check rather
-than returning as soon as Docker accepts the request. If it does not come up
+`update` prints the version before and after, so you can tell a real update
+from a no-op, and it waits for the container's health check rather than
+returning as soon as Docker accepts the request. If the app does not come up
 healthy it prints the log and exits non-zero.
 
-It is a wrapper around `docker compose` in the install directory. By hand,
-the same thing is `cd /opt/tmp && docker compose pull && docker compose up
--d`; the new container migrates itself. Full instructions, including backups,
-your own PostgreSQL and building the image from source, are in
+Running it with no arguments reports; it does not reinstall. Reconfiguring —
+a new domain, a different port, redoing the proxy — is the same script with
+the flags again, and it keeps your existing secrets and data.
+
+By hand the update is `cd /opt/tmp && docker compose pull && docker compose
+up -d`; the new container migrates itself. Full instructions, including
+backups, your own PostgreSQL and building the image from source, are in
 [docs/DOCKER.md](docs/DOCKER.md).
 
 ## Quick start (from source)
