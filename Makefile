@@ -4,7 +4,7 @@ PG_DATA?=data/pg16
 PG_PORT?=5433
 ENV?=config/local.env
 
-.PHONY: deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
+.PHONY: kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
 
 deploy: ## Build, migrate and deploy to tmp.io (reads config/deploy.env for DOADMIN_URL, BASICAUTH_PW, optional GOOGLE_*)
 	@test -f config/deploy.env || { echo "create config/deploy.env from config/deploy.env.example"; exit 1; }
@@ -27,6 +27,18 @@ run: ## Run the API with config/local.env
 
 build:
 	go build -o bin/ ./cmd/...
+
+kill: ## Stop a server started by make run
+	@p=$$(grep -sE '^PORT=' $(ENV) | cut -d= -f2 | tr -d '"'); p=$${p:-8000}; \
+	 pids=$$(lsof -ti tcp:$$p -sTCP:LISTEN 2>/dev/null || true); \
+	 if [ -z "$$pids" ]; then echo "nothing is listening on $$p"; exit 0; fi; \
+	 for pid in $$pids; do \
+	   name=$$(basename "$$(ps -o comm= -p $$pid 2>/dev/null)"); \
+	   case "$$name" in \
+	     api|tmpio|main|go) kill $$pid && echo "stopped $$name ($$pid) on port $$p" ;; \
+	     *) echo "left $$name ($$pid) on port $$p alone: that is not a tmp server" ;; \
+	   esac; \
+	 done
 
 fmt:
 	gofmt -l -w cmd internal
