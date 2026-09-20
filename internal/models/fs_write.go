@@ -663,3 +663,37 @@ func initialFilesystem(tx *gorm.DB, tenantID, userID int64, cfgSrc, indexSrc str
 	}
 	return nil
 }
+
+// PriorWritePath returns the path a previous write with this request id
+// committed to. A retry must be placed once and only once: deciding a fresh
+// location on the second attempt would file the same document twice and turn
+// a safe retry into a duplicate.
+func (o *Ops) PriorWritePath(ctx context.Context, p Principal, requestID string) (string, bool, error) {
+	if requestID == "" || !ValidUUID(requestID) {
+		return "", false, nil
+	}
+	var (
+		path  string
+		found bool
+	)
+	err := db.WithTenant(ctx, p.TenantID, func(tx *gorm.DB) error {
+		var r MutationReceipt
+		err := tx.Where("principal_key = ? AND request_id = ? AND operation = ?", p.Key(), requestID, "write").First(&r).Error
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				return nil
+			}
+			return err
+		}
+		if time.Now().After(r.ExpiresAt) {
+			return nil
+		}
+		var res MutationResult
+		if err := json.Unmarshal(r.Result, &res); err != nil {
+			return nil
+		}
+		path, found = res.Entry.Path, res.Entry.Path != ""
+		return nil
+	})
+	return path, found, err
+}

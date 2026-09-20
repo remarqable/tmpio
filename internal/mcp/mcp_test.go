@@ -137,12 +137,16 @@ func TestMCPProtocolAndTools(t *testing.T) {
 	assert.Equal(t, cfg.AppOrigin+"/o:"+tn.Code, info["url_base"])
 	assert.ElementsMatch(t, []any{"content:read", "content:write"}, info["scopes"])
 
+	// A new page is filed by tmp, whatever path the client suggests, and the
+	// reply says where it went.
 	out, isErr := call(t, sess, "tmp_write", map[string]any{"path": "/research/circle.md", "content": "---\ntitle: Circle\n---\n\n# Circle\n\nFrom MCP.\n", "expected_revision": 0, "request_id": "11111111-2222-4333-8444-555555555555"})
 	require.False(t, isErr, out)
 	assert.Equal(t, true, out["created"])
 	assert.EqualValues(t, 1, out["revision"])
+	assert.NotNil(t, out["placement"], "a new page is placed by tmp")
+	written := out["path"].(string)
 	urls := out["urls"].(map[string]any)
-	assert.Equal(t, cfg.AppOrigin+"/o:"+tn.Code+"/research/circle", urls["html"])
+	assert.Equal(t, cfg.AppOrigin+"/o:"+tn.Code+strings.TrimSuffix(written, ".md"), urls["html"])
 	assert.NotContains(t, urls["html"], "/s/")
 
 	// The returned URLs resolve to the committed revision for an authorized reader.
@@ -154,6 +158,9 @@ func TestMCPProtocolAndTools(t *testing.T) {
 	res.Body.Close()
 
 	// Filing: tmp_organize suggests a location without writing; tmp_write "auto" files and writes.
+	// The folder is created deliberately now that a write cannot conjure one.
+	mk, isErr := call(t, sess, "tmp_mkdir", map[string]any{"path": "/research", "request_id": "11111111-2222-4333-8444-5555555555d1"})
+	require.False(t, isErr, mk)
 	org, isErr := call(t, sess, "tmp_organize", map[string]any{"content": "# Circle pricing\n\nCircle charges $89/mo. Research notes.\n"})
 	require.False(t, isErr, org)
 	placement := org["placement"].(map[string]any)
@@ -172,28 +179,28 @@ func TestMCPProtocolAndTools(t *testing.T) {
 	assert.Equal(t, "/research/circle-pricing-2.md", auto2["path"], "auto never overwrites: an occupied path gets a numbered name")
 
 	// Retry with the same request id is idempotent.
-	out, isErr = call(t, sess, "tmp_write", map[string]any{"path": "/research/circle.md", "content": "---\ntitle: Circle\n---\n\n# Circle\n\nFrom MCP.\n", "expected_revision": 0, "request_id": "11111111-2222-4333-8444-555555555555"})
+	out, isErr = call(t, sess, "tmp_write", map[string]any{"path": written, "content": "---\ntitle: Circle\n---\n\n# Circle\n\nFrom MCP.\n", "expected_revision": 0, "request_id": "11111111-2222-4333-8444-555555555555"})
 	require.False(t, isErr)
 	assert.EqualValues(t, 1, out["revision"])
 
 	// Stale write → structured conflict with next step.
-	out, isErr = call(t, sess, "tmp_write", map[string]any{"path": "/research/circle.md", "content": "# X\n", "expected_revision": 9, "request_id": "11111111-2222-4333-8444-555555555556"})
+	out, isErr = call(t, sess, "tmp_write", map[string]any{"path": written, "content": "# X\n", "expected_revision": 9, "request_id": "11111111-2222-4333-8444-555555555556"})
 	assert.True(t, isErr)
 	assert.Equal(t, "revision_conflict", out["code"])
 	assert.EqualValues(t, 1, out["current_revision"])
 	assert.Contains(t, out["next_step"], "tmp_read")
 
 	// Read, list, search, history.
-	out, isErr = call(t, sess, "tmp_read", map[string]any{"path": "/research/circle.md"})
+	out, isErr = call(t, sess, "tmp_read", map[string]any{"path": written})
 	require.False(t, isErr)
 	assert.Contains(t, out["content"], "From MCP")
 	out, isErr = call(t, sess, "tmp_list", map[string]any{"path": "/research"})
 	require.False(t, isErr)
-	assert.Len(t, out["entries"], 3, "circle plus the two auto-filed pages")
+	assert.Len(t, out["entries"], 2, "the two auto-filed pages; circle was filed elsewhere")
 	out, isErr = call(t, sess, "tmp_search", map[string]any{"query": "MCP"})
 	require.False(t, isErr)
 	assert.Len(t, out["hits"], 1)
-	out, isErr = call(t, sess, "tmp_history", map[string]any{"path": "/research/circle.md"})
+	out, isErr = call(t, sess, "tmp_history", map[string]any{"path": written})
 	require.False(t, isErr)
 	assert.Len(t, out["items"], 1)
 
@@ -204,12 +211,12 @@ func TestMCPProtocolAndTools(t *testing.T) {
 	assert.NotEmpty(t, out["field_errors"])
 
 	// Missing scope.
-	out, isErr = call(t, sess, "tmp_delete", map[string]any{"path": "/research/circle.md", "expected_revision": 1, "request_id": "11111111-2222-4333-8444-555555555558"})
+	out, isErr = call(t, sess, "tmp_delete", map[string]any{"path": written, "expected_revision": 1, "request_id": "11111111-2222-4333-8444-555555555558"})
 	assert.True(t, isErr)
 	assert.Equal(t, "insufficient_scope", out["code"])
 
 	// Move and restore.
-	out, isErr = call(t, sess, "tmp_move", map[string]any{"from": "/research/circle.md", "to": "/notes/circle.md", "expected_revision": 1, "request_id": "11111111-2222-4333-8444-555555555559"})
+	out, isErr = call(t, sess, "tmp_move", map[string]any{"from": written, "to": "/notes/circle.md", "expected_revision": 1, "request_id": "11111111-2222-4333-8444-555555555559"})
 	require.False(t, isErr, out)
 	assert.Equal(t, "/notes/circle.md", out["path"])
 	out, isErr = call(t, sess, "tmp_restore", map[string]any{"path": "/notes/circle.md", "revision": 1, "expected_revision": 2, "request_id": "11111111-2222-4333-8444-55555555555a"})
@@ -230,4 +237,44 @@ func TestMCPProtocolAndTools(t *testing.T) {
 	out, isErr = call(t, sess2, "tmp_read", map[string]any{"path": "/notes/circle.md"})
 	require.False(t, isErr)
 	assert.Equal(t, true, out["deleted"], "authorized readers get a tombstone")
+}
+
+// TestTmpOwnsPlacementForNewPages is the rule the product depends on: a client
+// cannot invent a taxonomy one document at a time. It sees one note; tmp sees
+// the site.
+func TestTmpOwnsPlacementForNewPages(t *testing.T) {
+	srv, cfg, _, p, _ := setup(t)
+	pair, _ := issue(t, cfg, p, "content:read", "content:write")
+	sess := connect(t, srv, pair.AccessToken)
+
+	// A path the client made up, for content that does not exist yet, is a
+	// hint rather than an instruction: the page lands where tmp decides.
+	out, isErr := call(t, sess, "tmp_write", map[string]any{
+		"path": "/business/password-managers.md", "content": "# Password managers\n\nA comparison.\n",
+		"expected_revision": 0, "summary": "password managers", "request_id": "11111111-2222-4333-8444-5555555560a1",
+	})
+	require.False(t, isErr, "write should succeed: %v", out)
+	require.NotNil(t, out["placement"], "a new page must be filed by tmp, with the placement reported")
+	got, _ := out["path"].(string)
+	require.NotEqual(t, "/business/password-managers.md", got,
+		"the client's invented path must not be taken as an instruction")
+
+	// That page now exists, so writing to its real path is an edit and the
+	// path is honoured exactly.
+	rev, _ := out["revision"].(float64)
+	again, isErr := call(t, sess, "tmp_write", map[string]any{
+		"path": got, "content": "# Password managers\n\nRevised.\n",
+		"expected_revision": int64(rev), "summary": "revise", "request_id": "11111111-2222-4333-8444-5555555560a2",
+	})
+	require.False(t, isErr, "edit should succeed: %v", again)
+	require.Equal(t, got, again["path"], "an existing path is honoured, not re-filed")
+	require.Nil(t, again["placement"], "an edit is not a placement decision")
+
+	// "auto" behaves as it always did.
+	auto, isErr := call(t, sess, "tmp_write", map[string]any{
+		"path": "auto", "content": "# Lisbon packing list\n\nShoes.\n",
+		"expected_revision": 0, "summary": "packing list", "request_id": "11111111-2222-4333-8444-5555555560a3",
+	})
+	require.False(t, isErr)
+	require.NotNil(t, auto["placement"])
 }

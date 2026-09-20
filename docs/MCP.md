@@ -64,14 +64,20 @@ Annotations: `readOnly` = `readOnlyHint: true, openWorldHint: false`. `additive`
 | `tmp_read` | `content:read` | readOnly | `path`, `revision` (0 = current) | entry fields plus `content` for pages and `/tmp.yaml`; `revision_read` when a specific revision was read; metadata only for directories and assets; deleted pages return `deleted: true` with their current revision |
 | `tmp_search` | `content:read` | readOnly | `query` (1-200 chars), `path_prefix`, `cursor`, `limit` (1-50) | `query`, `hits[] {path, title, snippet, revision, urls}`, `next_cursor?` |
 | `tmp_organize` | `content:read` | readOnly | `content`, `filename?`, `hint?` | `placement {path, directory, name, kind, title, reason, source: ai or heuristic, new_directory, exists, existing_revision, alternatives, expected_revision}`, `write_with {path, expected_revision: 0}`. Nothing is written. |
-| `tmp_write` | `content:write` | additive | `path` (or the word `auto`), `content`, `expected_revision`, `summary?`, `request_id` | mutation result: entry fields, `created`, `unchanged`, `private: true`, `visible_to`, `warnings?`; with `auto`, also `placement` |
+| `tmp_write` | `content:write` | additive | `path` (`auto` for new content; an existing path to replace it), `content`, `expected_revision`, `summary?`, `request_id` | mutation result: entry fields, `created`, `unchanged`, `private: true`, `visible_to`, `warnings?`; `placement` whenever tmp chose the location |
 | `tmp_mkdir` | `content:write` | additive | `path`, `request_id` | mutation result; `created: false` if it existed |
 | `tmp_move` | `content:write` | destructive | `from`, `to`, `expected_revision`, `request_id` | mutation result plus `aliases` (old path) and `rewrites?` (relative links rewritten) |
 | `tmp_delete` | `content:delete` | destructive | `path`, `expected_revision`, `request_id` | mutation result with `deleted: true` |
 | `tmp_history` | `content:read` | readOnly | `path`, `cursor`, `limit` (1-50) | `path`, `current_revision`, `items[] {revision, operation, summary, actor, actor_kind, author_name, path, prior_path, size_bytes, created_at, share_label, title}`, `next_cursor?` |
 | `tmp_restore` | `content:write` | additive | `path`, `revision`, `expected_revision`, `request_id` | mutation result; new revision with the old content; revives a deleted page; sharing links are not reactivated |
 
-Filing: when the agent has content but no obvious home, `tmp_organize` returns a suggested path chosen from a snapshot of the existing folders and pages (a small model when the server has `ANTHROPIC_API_KEY`, a deterministic heuristic otherwise; see docs/API.md "Filing"). `tmp_write` with `path: "auto"` does the same and writes in one step; it never overwrites, so an occupied suggestion gets a numbered name (`circle-pricing-2.md`). The reply includes the `placement` so the agent can tell the user where the note went, and can `tmp_move` it if the user disagrees.
+**Filing: tmp decides where new pages live.** A client sees one document; tmp sees the whole site, and a taxonomy invented a document at a time is how a site ends up with `/business`, `/work` and `/projects` meaning the same thing. So a path supplied for a page that does not exist yet is read as a *hint*, not an instruction, and the page is filed by tmp. `auto`, or no path at all, says the same thing more plainly.
+
+An existing path is a different question: that is an edit, the caller means that page, and the path is honoured exactly. `tmp_move` remains the way to put something somewhere specific, and it is an instruction because the user asked for it.
+
+The placement itself comes from a snapshot of the existing folders and pages: a small model when the installation has a key, a deterministic heuristic otherwise (see docs/API.md "Filing"). It never overwrites, so an occupied suggestion gets a numbered name (`circle-pricing-2.md`). The reply includes the `placement`, with the directory, the name and the reason, so the agent can tell the user where the note went and offer to move it.
+
+A retry with the same `request_id` keeps the location the first attempt committed to; it is not filed a second time.
 
 Semantics shared with REST: `expected_revision` 0 means create only and fails with `revision_conflict` if the page exists; a stale revision fails with `revision_conflict`; identical content returns `unchanged: true` without a new revision; missing parent directories are created; `/tmp.yaml` is validated against its schema; asset upload is not available through MCP.
 

@@ -308,16 +308,43 @@ func (s *Server) register() {
 		RequestID        string `json:"request_id" jsonschema:"Fresh UUID; reuse only to retry the identical call"`
 	}
 	mcp.AddTool(s.srv, &mcp.Tool{Name: "tmp_write", Title: "Write page", Annotations: additive,
-		Description: "Create or replace an entire page (.md), a text file (.txt .csv .tsv .json .yaml .toml .xml .log and common code files) or /tmp.yaml. Pass path \"auto\" to let tmp choose a location from the existing tree (the reply includes the placement). JSON and YAML must parse. Requires expected_revision (0 = create only). A stale revision fails with revision_conflict: read, merge, retry. Saved content is immediately visible to the owner and to active sharing-link holders. Missing parent directories are created."},
+		Description: "Create or replace an entire page (.md), a text file (.txt .csv .tsv .json .yaml .toml .xml .log and common code files) or /tmp.yaml. Do not invent a location for new content: tmp files new pages itself, into one taxonomy across the whole site, and the reply tells you where it went. Pass \"auto\" (or nothing) for a new page; a path you pass for a page that does not exist yet is taken as a hint, not an instruction. To replace an existing page, pass its exact path and its current expected_revision, and that path is honoured. JSON and YAML must parse. A stale revision fails with revision_conflict: read, merge, retry. Saved content is immediately visible to the owner and to active sharing-link holders. Missing parent directories are created."},
 		func(ctx context.Context, req *mcp.CallToolRequest, in writeIn) (*mcp.CallToolResult, any, error) {
 			p, okp := principalFrom(req)
 			if !okp {
 				return toolError(errors.New(errors.CodeUnauthorized, "no credential")), nil, nil
 			}
 			var placed *models.Placement
-			path := in.Path
-			if strings.EqualFold(strings.TrimSpace(path), "auto") || strings.TrimSpace(path) == "" {
-				pl, err := s.ops.SuggestPlacement(ctx, p, models.PlacementInput{Content: in.Content, Filename: in.Summary})
+			path := strings.TrimSpace(in.Path)
+			// tmp owns where new content lives. A client that names a path for
+			// a page that does not exist is guessing at a taxonomy it can only
+			// see one document at a time, which is how a site ends up with
+			// /business, /work and /projects meaning the same thing. An
+			// existing path is a different question — that is an edit, and the
+			// caller means that page.
+			decide := path == "" || strings.EqualFold(path, "auto")
+			hint := ""
+			// A retry keeps the location the first attempt committed to.
+			// Placing again would file the same document a second time and
+			// make a safe retry unsafe.
+			if prior, ok, err := s.ops.PriorWritePath(ctx, p, in.RequestID); err != nil {
+				return toolError(err), nil, nil
+			} else if ok {
+				path, decide = prior, false
+			}
+			if !decide {
+				exists, err := s.ops.PageExists(ctx, p, path)
+				if err != nil {
+					return toolError(err), nil, nil
+				}
+				if !exists {
+					decide, hint = true, path
+				}
+			}
+			if decide {
+				pl, err := s.ops.SuggestPlacement(ctx, p, models.PlacementInput{
+					Content: in.Content, Filename: in.Summary, Hint: hint,
+				})
 				if err != nil {
 					return toolError(err), nil, nil
 				}

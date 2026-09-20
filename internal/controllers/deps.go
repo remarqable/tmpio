@@ -307,7 +307,7 @@ func itoa(n int) string {
 	return string(b)
 }
 
-// siteName resolves config name → organization name → "Your site".
+// siteName resolves config name → organization name → the unnamed-site label.
 func siteName(cfg *models.SiteConfig, t *models.Tenant) string {
 	if cfg != nil && cfg.Name != "" {
 		return cfg.Name

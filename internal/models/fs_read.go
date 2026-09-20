@@ -626,3 +626,26 @@ func (o *Ops) RenderPage(ctx context.Context, tenantID int64, prefix, sourcePath
 	})
 	return res, err
 }
+
+// PageExists reports whether a live page or file already occupies the path.
+// It is the question "is this a new page or an existing one", asked without
+// loading the document, and a malformed path is simply not an existing page.
+func (o *Ops) PageExists(ctx context.Context, p Principal, path string) (bool, error) {
+	if !p.Can(ScopeRead) {
+		return false, errors.New(errors.CodeInsufficientScope, "content:read scope is required")
+	}
+	info, err := ValidatePath(path)
+	if err != nil {
+		return false, nil
+	}
+	var found bool
+	err = db.WithTenant(ctx, p.TenantID, func(tx *gorm.DB) error {
+		e, err := entryByPath(tx, info.Path, false)
+		if err != nil {
+			return err
+		}
+		found = e != nil && !e.Deleted()
+		return nil
+	})
+	return found, err
+}
