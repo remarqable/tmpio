@@ -147,8 +147,16 @@ body {
 
 /* Footer line */
 .auth-foot { margin: 20px 0 0; text-align: center; font-size: 12px; color: var(--fg-3); }
-.auth-foot a { color: var(--fg-3); text-decoration: none; transition: color 150ms var(--ease); }
-.auth-foot a:hover { color: var(--fg-2); text-decoration: underline; text-underline-offset: 3px; }
+.auth-foot a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg-3);
+  text-decoration: none;
+  transition: color 150ms var(--ease);
+}
+.auth-foot a:hover { color: var(--fg-2); }
+.auth-icon { display: block; flex: 0 0 auto; }
 
 /* Data-ish bits on the consent screen */
 code { font-family: var(--mono); font-size: 12px; color: var(--fg-2); }
@@ -166,5 +174,7 @@ code { font-family: var(--mono); font-size: 12px; color: var(--fg-2); }
 
 /* The development sign-in, which only exists when DEV_LOGIN_BYPASS is set */
 .auth-dev { margin-top: 20px; padding-top: 20px; border-top: 1px solid var(--line); }
+/* When it is the only way in, there is nothing to divide it from. */
+.auth-dev:first-child { margin-top: 0; padding-top: 0; border-top: 0; }
 .auth-dev .auth-field { margin-bottom: 12px; }
 .auth-hint { margin: 12px 0 0; font-size: 12px; color: var(--fg-3); }

@@ -4,8 +4,6 @@
 
   {{if .GoogleEnabled}}
     <a class="{{if .LocalAuth}}auth-btn-ghost{{else}}auth-btn{{end}}" href="/auth/google{{if or .Return .OAuthRequest}}?{{if .Return}}return={{.Return}}{{end}}{{if .OAuthRequest}}{{if .Return}}&amp;{{end}}oauth={{.OAuthRequest}}{{end}}{{end}}">{{t "landing.cta"}}</a>
-  {{else if not .LocalAuth}}
-    <p class="auth-text">{{t "landing.google_unavailable"}}</p>
   {{end}}
 
   {{if .LocalAuth}}
@@ -15,7 +13,7 @@
       {{if .OAuthRequest}}<input type="hidden" name="oauth" value="{{.OAuthRequest}}">{{end}}
       <div class="auth-field">
         <label for="local-email">{{t "landing.local_email"}}</label>
-        <input class="auth-input" id="local-email" name="email" type="email" required autocomplete="username" autofocus placeholder="you@example.com">
+        <input class="auth-input" id="local-email" name="email" type="email" required autocomplete="username" autofocus>
       </div>
       <div class="auth-field">
         <label for="local-password">{{t "landing.local_password"}}</label>
@@ -32,7 +30,7 @@
         {{if .OAuthRequest}}<input type="hidden" name="oauth" value="{{.OAuthRequest}}">{{end}}
         <div class="auth-field">
           <label for="dev-email">{{t "landing.dev_email"}}</label>
-          <input class="auth-input" id="dev-email" name="email" type="email" required placeholder="you@example.com">
+          <input class="auth-input" id="dev-email" name="email" type="email" required>
         </div>
         <div class="auth-field">
           <label for="dev-name">{{t "landing.dev_name"}}</label>
