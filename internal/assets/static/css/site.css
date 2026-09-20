@@ -613,14 +613,19 @@ body.tmp-site {
 .tmp-crumbs [aria-current="page"] { color: var(--tmp-fg); font-weight: 500; }
 
 .tmp-article {
-  max-width: var(--tmp-measure);
   /* Sits against the sidebar rather than floating in the middle of the main
-     column. The measure still caps the line length; it just starts where the
-     navigation ends, so the eye travels a short way from the tree to the text
-     instead of across a gap of empty page. */
+     column, so the eye travels a short way from the tree to the text instead
+     of across a gap of empty page. The measure is applied to the parts that
+     are read - the prose, the title, the lead - rather than to the article
+     box, so the toolbar can use the width the column actually has. */
   margin: 0 auto 0 0;
   padding: 0 var(--tmp-article-pad);
 }
+.tmp-article > * { max-width: var(--tmp-measure); }
+.tmp-article > .tmp-article-header { max-width: none; }
+.tmp-article-header > h1,
+.tmp-article-header > .tmp-lead,
+.tmp-article-header > .tmp-meta { max-width: var(--tmp-measure); }
 .tmp-article-wide { max-width: none; }
 
 .tmp-article-header { margin-bottom: var(--tmp-space-8); }
@@ -1123,7 +1128,7 @@ html[data-theme="editorial"] .tmp-content blockquote { font-family: var(--tmp-fo
 .tmp-adminnav a { display: block; padding: var(--tmp-space-2) var(--tmp-space-2); }
 .tmp-badge-admin { background: rgba(167,139,250,.15); color: #a78bfa; border-color: rgba(167,139,250,.4); }
 .tmp-actions { display: flex; flex-wrap: wrap; gap: var(--tmp-space-2); margin-top: var(--tmp-space-3); }
-.tmp-actions .tmp-btn { font-size: var(--tmp-text-sm); padding: var(--tmp-space-1) var(--tmp-space-3); }
+.tmp-actions .tmp-btn { font-size: var(--tmp-text-sm); padding: var(--tmp-space-1) var(--tmp-space-2); }
 .tmp-site .tmp-btn-danger, .tmp-site button.tmp-btn-danger { color: var(--tmp-important-fg, #f87171); background: transparent; border-color: var(--tmp-border-strong); }
 .tmp-site .tmp-btn-danger:hover, .tmp-site button.tmp-btn-danger:hover { background: rgba(248,113,113,.12); border-color: #f87171; color: #f87171; }
 .tmp-inline-form { display: inline; margin: 0; }
@@ -1220,7 +1225,7 @@ textarea.tmp-editor-area { resize: none; }
 .tmp-ai-stats dt { font-size: var(--tmp-text-2xs); text-transform: uppercase; letter-spacing: .06em; color: var(--tmp-fg-muted); font-weight: 600; }
 .tmp-ai-stats dd { margin: 0; font-size: var(--tmp-text-lg); font-weight: 600; font-variant-numeric: tabular-nums; }
 .tmp-tools button.tmp-tool { background: transparent; cursor: pointer; font: inherit; font-size: var(--tmp-text-sm); }
-.tmp-tool-block { flex-basis: 100%; justify-content: center; border-style: dashed; }
+.tmp-tool-block { border-style: dashed; }
 .tmp-tool-block:hover { border-style: solid; }
 
 /* --------------------------------------------------------------------------
