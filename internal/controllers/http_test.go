@@ -302,7 +302,7 @@ func TestCSRFAndOwnerOperations(t *testing.T) {
 	assert.Equal(t, 303, res.StatusCode)
 	res.Body.Close()
 	res = a.do("GET", "/", nil, map[string]string{"Accept": "text/html"})
-	assert.Contains(t, readAll(res), " report.csv</a>", "files appear in the tree")
+	assert.Contains(t, readAll(res), `<span class="tmp-tree-label">report.csv</span>`, "files appear in the tree")
 	// Logout ends the session.
 	res = a.form("/logout", url.Values{})
 	assert.Equal(t, 302, res.StatusCode)

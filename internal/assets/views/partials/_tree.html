@@ -1,6 +1,6 @@
 {{define "partials/_tree.html"}}<ul class="tmp-tree">
 {{range .Nodes}}<li>
-  <a href="{{.URL}}" class="tmp-tree-{{.Kind}}" {{if eq .URL $.Current}}aria-current="page"{{end}}>{{if eq .Kind "file"}}{{template "icon" "file"}} {{else if eq .Kind "asset"}}{{template "icon" "file"}} {{end}}{{.Title}}</a>
+  <a href="{{.URL}}" class="tmp-tree-{{.Kind}}" {{if eq .URL $.Current}}aria-current="page"{{end}}>{{if eq .Kind "directory"}}{{template "icon" "folder"}}{{else}}{{template "icon" "file"}}{{end}}<span class="tmp-tree-label">{{.Title}}</span></a>
   {{if .Children}}{{template "partials/_tree.html" (dict "Nodes" .Children "Current" $.Current)}}{{end}}
 </li>{{end}}
 </ul>{{end}}

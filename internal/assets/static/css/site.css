@@ -473,16 +473,48 @@ body.tmp-site {
   margin: 0;
   padding: 0;
 }
-.tmp-tree ul { margin-left: 0.75rem; padding-left: 0.5rem; border-left: 1px solid var(--tmp-border); }
+/* Nested levels draw their own guides rather than the parent drawing one
+   border down the side. Each row gets a vertical run and an elbow into it,
+   and the last child stops its run at the elbow, which is what makes the
+   branch look closed instead of trailing off into the next section. */
+.tmp-tree ul { margin-left: 0.75rem; padding-left: 0.75rem; }
 .tmp-tree li { margin: 0; }
+.tmp-tree ul > li { position: relative; }
+.tmp-tree ul > li::before,
+.tmp-tree ul > li::after {
+  content: "";
+  position: absolute;
+  background: var(--tmp-border);
+}
+/* the vertical run, down the whole row and its children */
+.tmp-tree ul > li::before {
+  left: -0.75rem;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+/* the last child stops level with its own elbow */
+.tmp-tree ul > li:last-child::before { bottom: auto; height: 0.95em; }
+/* the elbow reaching in to the row */
+.tmp-tree ul > li::after {
+  left: -0.75rem;
+  top: 0.95em;
+  width: 0.5rem;
+  height: 1px;
+}
 .tmp-tree a {
-  display: block;
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4em;
   padding: 0.28em 0.6em;
   color: var(--tmp-fg-muted);
   border-radius: var(--tmp-radius);
   line-height: 1.4;
   overflow-wrap: anywhere;
 }
+.tmp-tree-label { min-width: 0; overflow-wrap: anywhere; }
+/* The icon sits on the first line's centre even when the title wraps. */
+.tmp-tree a .ic { flex: none; margin-top: 0.12em; }
 .tmp-tree a:hover { color: var(--tmp-fg); background: var(--tmp-bg-subtle); text-decoration: none; }
 .tmp-tree a[aria-current="page"] {
   color: var(--tmp-link);
@@ -1108,7 +1140,7 @@ textarea.tmp-editor-area { resize: none; }
 .ic { width: 1em; height: 1em; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.15em; flex-shrink: 0; }
 .tmp-btn .ic, .tmp-tool .ic, .tmp-owner-link .ic, .tmp-menu-btn .ic, .tmp-adminnav .ic { width: 1.05em; height: 1.05em; margin-right: .1em; }
 .tmp-appearance button .ic { width: 1rem; height: 1rem; }
-.tmp-tree .ic { width: .9em; height: .9em; opacity: .7; }
+.tmp-tree .ic { width: 1.15em; height: 1.15em; opacity: .8; }
 .tmp-card-title .ic { opacity: .7; margin-right: .15em; }
 .tmp-adminnav a { display: flex; align-items: center; gap: .5rem; }
 .tmp-tool { display: inline-flex; align-items: center; gap: .3rem; }
