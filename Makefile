@@ -4,7 +4,7 @@ PG_DATA?=data/pg16
 PG_PORT?=5433
 ENV?=config/local.env
 
-.PHONY: kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
+.PHONY: reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
 
 deploy: ## Build, migrate and deploy to tmp.io (reads config/deploy.env for DOADMIN_URL, BASICAUTH_PW, optional GOOGLE_*)
 	@test -f config/deploy.env || { echo "create config/deploy.env from config/deploy.env.example"; exit 1; }
@@ -74,6 +74,22 @@ db-start: ## Start the local cluster (no-op if it is already running)
 
 db-stop:
 	$(PG_BIN)/pg_ctl -D $(PG_DATA) stop
+
+reset: ## Empty the development database: next sign-in starts a fresh site
+	@test -f $(ENV) || { echo "no $(ENV); copy config/local.env.example first"; exit 1; }
+	@set -a && . "$(ENV)" && set +a && \
+	if [ "$$FORCE" != "1" ]; then \
+		printf 'Delete every page, revision, account and token in the development database.\nType "reset" to continue: '; \
+		read answer; [ "$$answer" = "reset" ] || { echo "cancelled"; exit 1; }; \
+	fi; \
+	$(PG_BIN)/psql "$$DATABASE_OWNER_URL" -v ON_ERROR_STOP=1 -q -c "\
+		DO \$$\$$ DECLARE r record; BEGIN \
+			FOR r IN SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename <> 'goose_db_version' LOOP \
+				EXECUTE format('TRUNCATE TABLE %I RESTART IDENTITY CASCADE', r.tablename); \
+			END LOOP; \
+		END \$$\$$;" \
+		-c "INSERT INTO instance_setting (id) VALUES (1) ON CONFLICT (id) DO NOTHING;" && \
+	echo "development database emptied. Sign in again and you get a new site with the welcome page."
 
 db-reset: ## Drop and recreate the test database schema
 	@set -a && . ./$(ENV) && set +a && goose -dir migrations postgres "$$TEST_DATABASE_OWNER_URL" down-to 0 && goose -dir migrations postgres "$$TEST_DATABASE_OWNER_URL" up

@@ -185,6 +185,13 @@ PostgreSQL-backed tests read `TEST_DATABASE_URL` and `TEST_DATABASE_OWNER_URL` a
 | `internal/controllers` | `http_test.go`, `http_share_test.go`, `testharness_test.go` | both address forms and authorization (A15), CSRF and dashboard forms, the REST contract, the secret-link HTTP contract |
 | `internal/mcp` | `mcp_test.go` | SDK client over Streamable HTTP: 401 challenge, wrong-audience refusal, `tools/list` annotations, all ten tools, structured errors, live-session revocation |
 
+`make reset` empties the development database: every page, revision, account
+and token, leaving the schema and the instance settings row alone. The next
+sign-in then creates a fresh site with the welcome page, which is the quickest
+way to see what a new installation looks like. It asks for confirmation unless
+`FORCE=1`. `make db-reset` is the different, narrower thing: it rebuilds the
+*test* database schema.
+
 Scripts against a running dev server: `scripts/e2e.sh [origin]` runs the ten-step core proof and needs the `local-test` client from the `OAUTH_CLIENTS_JSON` example; `scripts/loadcheck.sh [origin] [pages]` seeds pages and measures latency; `scripts/screenshots.mjs` captures headless Chrome screenshots and needs Google Chrome on macOS and Node 22 or newer.
 
 `make migrate-down` and `make db-reset` act on the test database only.
