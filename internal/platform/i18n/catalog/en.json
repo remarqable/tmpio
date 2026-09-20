@@ -134,7 +134,7 @@
   "server.ai_title": "AI filing credential",
   "server.ai_help": "One key for this whole installation. It pays for every organization's filing calls, and each organization still decides separately whether its content may be sent. Saving checks the key against the provider.",
   "server.ai_key": "Anthropic API key",
-  "server.ai_key_set": "A key is stored ({hint}). Leave the field as it is to keep it, or paste a new one to replace it. Clear it to turn filing off everywhere.",
+  "server.ai_key_set": "Replace it to change the key, or clear it to turn filing off everywhere.",
   "server.ai_key_none": "No key is stored, so filing uses the rule-based fallback for every organization.",
   "server.ai_key_from_env": "It came from ANTHROPIC_API_KEY at startup; changing it here replaces it for good.",
   "server.ai_model": "Model",

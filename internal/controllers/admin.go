@@ -249,9 +249,11 @@ func (d *Deps) AdminServer(c *gin.Context) {
 		"Site": sv,
 		// The environment only seeds the stored key, so the field is always
 		// editable; say where the current one came from and leave it at that.
-		"FromEnv":     d.Cfg.AI.APIKey != "" && d.Cfg.AI.APIKey == set.AIAPIKey,
-		"HasKey":      set.AIAPIKey != "",
-		"KeyHint":     keyHint(set.AIAPIKey),
+		"FromEnv": d.Cfg.AI.APIKey != "" && d.Cfg.AI.APIKey == set.AIAPIKey,
+		"HasKey":  set.AIAPIKey != "",
+		// Shown in full. This page is for whoever runs the server, and a
+		// credential you cannot read is a credential you cannot check.
+		"APIKey":      set.AIAPIKey,
 		"Model":       firstNonEmpty(set.AIModel, d.Cfg.AI.Model),
 		"BaseURL":     set.AIBaseURL,
 		"WorkspaceID": set.AIWorkspaceID,
@@ -268,14 +270,6 @@ func (d *Deps) AdminServerAI(c *gin.Context) {
 	}
 	ctx := c.Request.Context()
 	key := strings.TrimSpace(c.PostForm("api_key"))
-	if key == keyUnchanged {
-		set, err := models.GetInstanceSetting(ctx)
-		if err != nil {
-			d.fail(c, err)
-			return
-		}
-		key = set.AIAPIKey
-	}
 	if err := models.SaveInstanceAI(ctx, key, c.PostForm("model"), c.PostForm("base_url"), c.PostForm("workspace_id")); err != nil {
 		d.flashFail(c, err, "/admin/server")
 		return
@@ -291,18 +285,6 @@ func (d *Deps) AdminServerAI(c *gin.Context) {
 		return
 	}
 	c.Redirect(http.StatusSeeOther, "/admin/server?saved=1&verified=1")
-}
-
-// keyUnchanged is what the form submits when the operator did not retype the
-// key, so that a masked field never blanks a working credential.
-const keyUnchanged = "••••••••"
-
-// keyHint shows enough of a credential to recognise it and not enough to use it.
-func keyHint(k string) string {
-	if len(k) < 12 {
-		return ""
-	}
-	return k[:7] + "…" + k[len(k)-4:]
 }
 
 func firstNonEmpty(vals ...string) string {

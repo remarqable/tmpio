@@ -12,10 +12,10 @@
   <input type="hidden" name="csrf_token" value="{{.CSRF}}">
   <div class="mb-3">
     <label class="form-label" for="api-key">{{t "server.ai_key"}}</label>
-    <input class="form-control" id="api-key" name="api_key" type="password" autocomplete="off" spellcheck="false"
-           value="{{if .HasKey}}••••••••{{end}}" placeholder="sk-ant-...">
+    <input class="form-control font-monospace" id="api-key" name="api_key" type="text" autocomplete="off"
+           spellcheck="false" autocapitalize="none" value="{{.APIKey}}" placeholder="sk-ant-...">
     <div class="form-text">
-      {{if .HasKey}}{{t "server.ai_key_set" "hint" .KeyHint}}{{if .FromEnv}} {{t "server.ai_key_from_env"}}{{end}}{{else}}{{t "server.ai_key_none"}}{{end}}
+      {{if .HasKey}}{{t "server.ai_key_set"}}{{if .FromEnv}} {{t "server.ai_key_from_env"}}{{end}}{{else}}{{t "server.ai_key_none"}}{{end}}
     </div>
   </div>
   <div class="mb-3">
