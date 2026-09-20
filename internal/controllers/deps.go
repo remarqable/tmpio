@@ -5,6 +5,7 @@ package controllers
 
 import (
 	"encoding/json"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/url"
@@ -86,6 +87,42 @@ func FuncMap() template.FuncMap {
 				return (&models.Entry{Kind: models.KindPage, Path: p}).HTMLPath()
 			}
 			return p
+		},
+		// bytesize renders a file size the way a file browser does. Directories
+		// carry no size of their own, so a zero is shown as a dash.
+		"bytesize": func(n int64) string {
+			switch {
+			case n <= 0:
+				return "\u2014"
+			case n < 1024:
+				return fmt.Sprintf("%d B", n)
+			case n < 1024*1024:
+				return fmt.Sprintf("%.1f KB", float64(n)/1024)
+			default:
+				return fmt.Sprintf("%.1f MB", float64(n)/(1024*1024))
+			}
+		},
+		// ago is a coarse relative time. Anything older than a month falls back
+		// to a date, because "37 days ago" is not how anyone thinks about it.
+		"ago": func(t time.Time) string {
+			if t.IsZero() {
+				return "\u2014"
+			}
+			d := time.Since(t)
+			switch {
+			case d < time.Minute:
+				return "just now"
+			case d < time.Hour:
+				return fmt.Sprintf("%d min ago", int(d.Minutes()))
+			case d < 24*time.Hour:
+				return fmt.Sprintf("%d hr ago", int(d.Hours()))
+			case d < 48*time.Hour:
+				return "yesterday"
+			case d < 30*24*time.Hour:
+				return fmt.Sprintf("%d days ago", int(d.Hours()/24))
+			default:
+				return t.UTC().Format("2 Jan 2006")
+			}
 		},
 		"int64": func(v any) int64 {
 			switch n := v.(type) {

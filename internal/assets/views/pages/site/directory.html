@@ -1,22 +1,73 @@
 {{define "content"}}
 {{if .Site.Breadcrumbs}}<nav class="tmp-crumbs" aria-label="{{t "site.breadcrumb"}}"><ol>{{range .Site.Breadcrumbs}}<li>{{if .Last}}<span aria-current="page">{{.Title}}</span>{{else}}<a href="{{.URL}}">{{.Title}}</a>{{end}}</li>{{end}}</ol></nav>{{end}}
 {{if .Error}}<div class="tmp-callout tmp-callout-important" role="alert"><div class="tmp-callout-body">{{.Error}}</div></div>{{end}}
-<article class="tmp-article">
+{{$dir := .Site.Directory.Path}}
+{{$at := printf "%s/" $dir}}{{if eq $dir "/"}}{{$at = "/"}}{{end}}
+<article class="tmp-article tmp-article-drive">
   <header class="tmp-article-header">
-    <h1>{{if eq .Site.Directory.Path "/"}}{{.Site.Name}}{{else}}{{t "site.index_of"}} {{.Site.Directory.Path}}/{{end}}</h1>
+    <h1>{{if eq $dir "/"}}{{.Site.Name}}{{else if .Site.Directory.Title}}{{.Site.Directory.Title}}{{else}}{{.Site.Directory.Name}}{{end}}</h1>
     {{if .Site.IsOwner}}
     <div class="tmp-actions">
-      <a class="tmp-btn" href="/new{{if eq .Site.Directory.Path "/"}}/{{else}}{{.Site.Directory.Path}}/{{end}}">{{template "icon" "file-plus"}} {{t "content.new_page"}}</a>
-      <a class="tmp-btn tmp-btn-secondary" href="/new{{if eq .Site.Directory.Path "/"}}/{{else}}{{.Site.Directory.Path}}/{{end}}?kind=folder">{{template "icon" "folder-plus"}} {{t "content.new_folder"}}</a>
-      <a class="tmp-btn tmp-btn-secondary" href="/new{{if eq .Site.Directory.Path "/"}}/{{else}}{{.Site.Directory.Path}}/{{end}}?kind=image">{{template "icon" "upload"}} {{t "content.upload"}}</a>
-      {{if ne .Site.Directory.Path "/"}}<a class="tmp-btn tmp-btn-secondary" href="/history{{.Site.Directory.HTMLPath}}">{{template "icon" "history"}} {{t "content.history"}}</a>
+      <a class="tmp-btn" href="/new{{$at}}">{{template "icon" "file-plus"}} {{t "content.new_page"}}</a>
+      <a class="tmp-btn tmp-btn-secondary" href="/new{{$at}}?kind=folder">{{template "icon" "folder-plus"}} {{t "content.new_folder"}}</a>
+      <a class="tmp-btn tmp-btn-secondary" href="/new{{$at}}?kind=image">{{template "icon" "upload"}} {{t "content.upload"}}</a>
+      {{if ne $dir "/"}}<a class="tmp-btn tmp-btn-secondary" href="/history{{.Site.Directory.HTMLPath}}">{{template "icon" "history"}} {{t "content.history"}}</a>
       <form method="post" action="/delete{{.Site.Directory.HTMLPath}}" data-confirm="{{t "content.delete_confirm"}}" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="expected_revision" value="{{.Site.Directory.CurrentRevision}}"><button class="tmp-btn tmp-btn-danger">{{template "icon" "trash"}} {{t "content.delete"}}</button></form>{{end}}
     </div>
     {{end}}
   </header>
+
   {{if .Site.Listing}}
-  <div class="tmp-cards">{{range .Site.Listing}}<a class="tmp-card" href="{{.URL}}"><span class="tmp-card-title">{{if eq .Kind "directory"}}{{template "icon" "folder"}}{{else if eq .Kind "page"}}{{template "icon" "edit"}}{{else}}{{template "icon" "file"}}{{end}} {{.Title}}</span><span class="tmp-card-desc">{{.Path}}</span></a>{{end}}</div>
+  <form method="post" action="/bulk" class="tmp-drive-form" data-drive
+        data-sel-one="{{t "drive.selected_one"}}" data-sel-many="{{t "drive.selected_many"}}"
+        data-immovable="{{t "drive.folders_immovable"}}" data-delete-confirm="{{t "drive.delete_confirm"}}">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <input type="hidden" name="dir" value="{{$dir}}">
+    <input type="hidden" name="action" value="" data-drive-action>
+
+    {{if .Site.IsOwner}}
+    <div class="tmp-drive-bulk" data-drive-bulk hidden>
+      <span class="tmp-drive-count" data-drive-count></span>
+      <span class="tmp-drive-bulk-actions">
+        <label class="tmp-drive-dest">
+          <span class="visually-hidden">{{t "drive.move_to"}}</span>
+          <input type="text" name="to" placeholder="{{t "drive.move_placeholder"}}" data-drive-dest list="tmp-folders" autocomplete="off" spellcheck="false">
+          <datalist id="tmp-folders">{{range .Site.Folders}}<option value="{{.}}"></option>{{end}}</datalist>
+        </label>
+        <button type="submit" class="tmp-btn tmp-btn-secondary" data-drive-move>{{template "icon" "folder"}} {{t "drive.move"}}</button>
+        <button type="submit" class="tmp-btn tmp-btn-danger" data-drive-delete>{{template "icon" "trash"}} {{t "content.delete"}}</button>
+        <button type="button" class="tmp-linkbtn" data-drive-clear>{{t "drive.clear"}}</button>
+      </span>
+    </div>
+    {{end}}
+
+    <table class="tmp-drive" data-drive-table>
+      <thead>
+        <tr>
+          {{if .Site.IsOwner}}<th class="tmp-drive-ck"><input type="checkbox" data-drive-all aria-label="{{t "drive.select_all"}}"></th>{{end}}
+          <th class="tmp-drive-sorted" data-drive-sort="name" aria-sort="ascending"><button type="button">{{t "content.col.name"}} <span class="tmp-drive-caret" aria-hidden="true"></span></button></th>
+          <th data-drive-sort="updated" aria-sort="none"><button type="button">{{t "content.updated"}} <span class="tmp-drive-caret" aria-hidden="true"></span></button></th>
+          <th class="tmp-drive-c-rev" data-drive-sort="rev" aria-sort="none"><button type="button">{{t "drive.col.rev"}} <span class="tmp-drive-caret" aria-hidden="true"></span></button></th>
+          <th class="tmp-drive-c-size" data-drive-sort="size" aria-sort="none"><button type="button">{{t "drive.col.size"}} <span class="tmp-drive-caret" aria-hidden="true"></span></button></th>
+        </tr>
+      </thead>
+      <tbody>
+        {{range .Site.Listing}}
+        <tr data-kind="{{.Kind}}" data-name="{{lower .Title}}" data-updated="{{.Updated.Unix}}" data-rev="{{.Revision}}" data-size="{{.Size}}">
+          {{if $.Site.IsOwner}}<td class="tmp-drive-ck"><input type="checkbox" name="path" value="{{.Path}}" aria-label="{{.Title}}"><input type="hidden" name="rev[{{.Path}}]" value="{{.Revision}}"></td>{{end}}
+          <td class="tmp-drive-name">
+            <span class="tmp-drive-nm">{{if eq .Kind "directory"}}{{template "icon" "folder"}}{{else if eq .Kind "page"}}{{template "icon" "edit"}}{{else}}{{template "icon" "file"}}{{end}}<a href="{{.URL}}">{{.Title}}</a></span>
+          </td>
+          <td class="tmp-drive-num">{{ago .Updated}}</td>
+          <td class="tmp-drive-num tmp-drive-c-rev">{{if eq .Kind "directory"}}&mdash;{{else}}{{.Revision}}{{end}}</td>
+          <td class="tmp-drive-num tmp-drive-c-size">{{bytesize .Size}}</td>
+        </tr>
+        {{end}}
+      </tbody>
+    </table>
+  </form>
   {{else}}<p class="tmp-lead">{{t "site.empty_dir"}}</p>{{end}}
+
   {{if and .Site.IsOwner .Assets}}<h2 class="tmp-h2-small">{{t "content.kind.asset"}}</h2><ul class="tmp-results">{{range .Assets}}<li><a href="{{.Path}}">{{.Path}}</a> <span class="tmp-muted">{{t "content.revision"}} {{.CurrentRevision}}</span> · <a href="/history{{.Path}}">{{t "content.history"}}</a>
     <form method="post" action="/delete{{.Path}}" data-confirm="{{t "content.delete_confirm"}}" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="expected_revision" value="{{.CurrentRevision}}"><button class="tmp-linkbtn">{{t "content.delete"}}</button></form></li>{{end}}</ul>{{end}}
 </article>

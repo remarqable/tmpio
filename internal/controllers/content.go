@@ -313,6 +313,7 @@ func (d *Deps) serveHTML(c *gin.Context, a *addr, rendered string) {
 			site.Title = siteName(site.Config, a.Tenant)
 		}
 		site.Listing = d.listingFor(ctx, site, res.Directory)
+		site.Folders = folderPaths(site.Sidebar)
 		site.Breadcrumbs = breadcrumbs(a.Prefix, res.Directory.Path, true)
 		site.CurrentHTML = a.Prefix + res.Directory.HTMLPath()
 		data := gin.H{"Site": site, "Error": c.Query("error")}

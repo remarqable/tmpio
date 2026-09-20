@@ -1141,3 +1141,116 @@ textarea.tmp-editor-area { resize: none; }
 .tmp-tools button.tmp-tool { background: transparent; cursor: pointer; font: inherit; font-size: .8rem; }
 .tmp-tool-block { flex-basis: 100%; justify-content: center; border-style: dashed; }
 .tmp-tool-block:hover { border-style: solid; }
+
+/* --------------------------------------------------------------------------
+   14. Directory listing as a file browser (.tmp-drive)
+   --------------------------------------------------------------------------
+   The folder page is where organising happens, so it gets columns, selection
+   and a bulk bar. Sorting is a progressive enhancement: without JS the table
+   still renders in its server-side order and every link works.
+   -------------------------------------------------------------------------- */
+.tmp-article-drive { max-width: none; }
+
+.tmp-drive-form { margin: 0; }
+
+.tmp-drive {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9375rem;
+}
+.tmp-drive thead th {
+  text-align: left;
+  font-size: 0.6875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  color: var(--tmp-fg-muted);
+  padding: 0.5rem 0.75rem;
+  border-bottom: 1px solid var(--tmp-border);
+  white-space: nowrap;
+}
+.tmp-drive thead th button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.tmp-drive thead th button:hover { color: var(--tmp-fg); }
+.tmp-drive-caret {
+  width: 0; height: 0;
+  border-left: 3.5px solid transparent;
+  border-right: 3.5px solid transparent;
+  border-bottom: 4px solid currentColor;
+  opacity: 0;
+}
+.tmp-drive-sorted { color: var(--tmp-fg); }
+.tmp-drive-sorted .tmp-drive-caret { opacity: 1; }
+.tmp-drive-sorted[aria-sort="descending"] .tmp-drive-caret { transform: rotate(180deg); }
+
+.tmp-drive tbody tr { border-bottom: 1px solid var(--tmp-border); }
+.tmp-drive tbody tr:hover { background: var(--tmp-bg-elev); }
+.tmp-drive tbody tr[data-selected] { background: var(--tmp-bg-subtle); }
+.tmp-drive td { padding: 0.5rem 0.75rem; vertical-align: middle; }
+
+.tmp-drive-ck { width: 2.25rem; padding-right: 0 !important; }
+.tmp-drive-ck input[type="checkbox"] { width: 0.875rem; height: 0.875rem; accent-color: var(--tmp-accent); cursor: pointer; }
+
+.tmp-drive-name { min-width: 0; }
+.tmp-drive-nm { display: flex; align-items: center; gap: 0.5rem; min-width: 0; }
+.tmp-drive-nm .ic { opacity: 0.7; flex: none; }
+.tmp-drive-nm a {
+  color: var(--tmp-fg);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tmp-drive-nm a:hover { color: var(--tmp-link); }
+.tmp-drive tr[data-kind="directory"] .tmp-drive-nm a { font-weight: 650; }
+
+.tmp-drive-num {
+  font-family: var(--tmp-font-mono);
+  font-size: 0.75rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--tmp-fg-muted);
+  white-space: nowrap;
+}
+
+.tmp-drive-bulk {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  padding: 0.5rem 0.75rem;
+  margin: 0 0 0.75rem;
+  border: 1px solid var(--tmp-accent);
+  border-radius: var(--tmp-radius);
+  background: var(--tmp-bg-elev);
+  font-size: 0.875rem;
+}
+.tmp-drive-bulk[hidden] { display: none; }
+.tmp-drive-count { font-weight: 600; }
+.tmp-drive-bulk-actions { margin-left: auto; display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.tmp-drive-dest input {
+  width: 14rem;
+  height: 2rem;
+  padding: 0 0.625rem;
+  border: 1px solid var(--tmp-border);
+  border-radius: var(--tmp-radius);
+  background: var(--tmp-bg);
+  color: var(--tmp-fg);
+  font: inherit;
+  font-size: 0.8125rem;
+}
+.tmp-drive-bulk .tmp-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+@media (max-width: 599.98px) {
+  .tmp-drive-c-rev, .tmp-drive-c-size { display: none; }
+  .tmp-drive-dest input { width: 100%; }
+  .tmp-drive-bulk-actions { margin-left: 0; width: 100%; }
+}

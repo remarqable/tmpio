@@ -328,5 +328,16 @@
   "settings.danger_help": "Deletes your organization and account: every page, revision, file, sharing link, API token and AI-client connection, immediately and permanently. Export first if you want a copy.",
   "settings.delete_confirm": "Type your organization code to confirm",
   "settings.delete_cta": "Delete everything",
-  "settings.delete_mismatch": "The organization code did not match; nothing was deleted."
+  "settings.delete_mismatch": "The organization code did not match; nothing was deleted.",
+  "drive.col.rev": "Rev",
+  "drive.col.size": "Size",
+  "drive.select_all": "Select all",
+  "drive.move": "Move to\u2026",
+  "drive.move_to": "Destination folder",
+  "drive.move_placeholder": "/personal/travel",
+  "drive.delete_confirm": "Delete the selected items?",
+  "drive.clear": "Clear",
+  "drive.selected_one": "1 item selected",
+  "drive.selected_many": "{n} items selected",
+  "drive.folders_immovable": "Folders cannot be moved yet"
 }

@@ -111,6 +111,7 @@ func (d *Deps) SetupRouter(mcpHandler http.Handler) *gin.Engine {
 		ops.GET("/move/*rest", d.MovePage)
 		ops.POST("/move/*rest", middleware.RateLimit(writeLimit, middleware.KeyByPrincipalOrIP), d.MoveEntry)
 		ops.POST("/delete/*rest", middleware.RateLimit(writeLimit, middleware.KeyByPrincipalOrIP), d.DeleteEntry)
+		ops.POST("/bulk", middleware.RateLimit(writeLimit, middleware.KeyByPrincipalOrIP), d.BulkEntry)
 		ops.GET("/trash", d.TrashPage)
 		ops.POST("/trash", middleware.RateLimit(writeLimit, middleware.KeyByPrincipalOrIP), d.TrashRestore)
 		ops.GET("/format", d.FormatGuide)

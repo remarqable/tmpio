@@ -1,10 +1,13 @@
 package controllers
 
 import (
+	"fmt"
 	"html/template"
 	"io"
 	"net/http"
 	"net/url"
+	"path"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -523,4 +526,80 @@ func (d *Deps) QuickAdd(c *gin.Context) {
 	d.render(c, http.StatusOK, "pages/ops/new.html", "layout/site", gin.H{
 		"Site": sv, "Dir": dir, "Kind": "page", "Name": name, "Content": content, "RequestID": uuidV4(), "Action": "/new" + dirHTML(dir), "Placement": pl, "AIEnabled": d.Cfg.AI.Enabled(),
 	})
+}
+
+// BulkEntry applies one action to the rows selected in a directory listing
+// (POST /bulk). Each selected row carries the revision the browser displayed,
+// so a page that changed underneath the listing is refused rather than moved
+// blind. Failures do not abort the run: every item is attempted and the
+// redirect reports how many did not make it.
+func (d *Deps) BulkEntry(c *gin.Context) {
+	_, a, err := d.ownerShell(c, "ops")
+	if err != nil {
+		d.fail(c, err)
+		return
+	}
+	back := dirHTML(strings.TrimSpace(c.PostForm("dir")))
+	paths := c.PostFormArray("path")
+	if len(paths) == 0 {
+		c.Redirect(http.StatusSeeOther, back)
+		return
+	}
+	revs := c.PostFormMap("rev")
+	action := c.PostForm("action")
+	to := strings.TrimSpace(c.PostForm("to"))
+	// "travel" and "/travel" mean the same thing to anyone typing in a hurry.
+	if to != "" && !strings.HasPrefix(to, "/") {
+		to = "/" + to
+	}
+
+	// Deepest first, so selecting a folder and its contents still empties the
+	// folder before trying to remove it.
+	sorted := append([]string(nil), paths...)
+	sort.Slice(sorted, func(i, j int) bool {
+		if n, m := strings.Count(sorted[i], "/"), strings.Count(sorted[j], "/"); n != m {
+			return n > m
+		}
+		return sorted[i] > sorted[j]
+	})
+
+	var failed []string
+	var firstErr error
+	done := 0
+	for _, p := range sorted {
+		rev, _ := strconv.ParseInt(revs[p], 10, 64)
+		var e error
+		switch action {
+		case "move":
+			e = func() error {
+				if to == "" {
+					return errors.New(errors.CodeValidationFailed, "a destination folder is required")
+				}
+				dest := strings.TrimSuffix(to, "/") + "/" + path.Base(p)
+				_, err := d.Ops.Move(c.Request.Context(), a.Prin, models.MoveInput{From: p, To: dest, ExpectedRevision: rev, RequestID: uuidV4()})
+				return err
+			}()
+		case "delete":
+			_, e = d.Ops.Delete(c.Request.Context(), a.Prin, p, rev, uuidV4())
+		default:
+			d.flashFail(c, errors.New(errors.CodeValidationFailed, "unknown bulk action"), back)
+			return
+		}
+		if e != nil {
+			failed = append(failed, path.Base(p))
+			if firstErr == nil {
+				firstErr = e
+			}
+			continue
+		}
+		done++
+	}
+	if len(failed) > 0 {
+		ae := errors.As(firstErr)
+		msg := fmt.Sprintf("%d of %d items could not be %sd (%s): %s",
+			len(failed), len(sorted), action, strings.Join(failed, ", "), ae.Message)
+		c.Redirect(http.StatusSeeOther, back+"?error="+url.QueryEscape(msg))
+		return
+	}
+	c.Redirect(http.StatusSeeOther, back)
 }

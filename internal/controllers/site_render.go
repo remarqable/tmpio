@@ -5,6 +5,7 @@ import (
 	"html/template"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -30,6 +31,12 @@ type NavNode struct {
 	Active   bool
 	Open     bool
 	Order    *int
+
+	// Columns the directory listing shows. A directory carries the newest
+	// timestamp of anything beneath it, so a folder row still says something.
+	Revision int64
+	Size     int64
+	Updated  time.Time
 }
 
 // RenderedPage is the view model of a rendered document.
@@ -70,6 +77,7 @@ type SiteView struct {
 	Wide        bool      // operation and admin pages use the full width
 	AdminNav    []NavLink // admin sections (Mode == admin)
 	CurrentDir  string    // directory the owner tools act on
+	Folders     []string  // every directory path, for the move field
 }
 
 // siteModel loads config and the sidebar tree for a tenant in one address form.
@@ -104,7 +112,7 @@ func buildTree(entries []models.Entry, prefix string) []*NavNode {
 			if e.Path == "/" {
 				continue
 			}
-			n := &NavNode{Title: e.Title, Path: e.Path, Kind: e.Kind, Order: e.OrderIndex, URL: ""}
+			n := &NavNode{Title: e.Title, Path: e.Path, Kind: e.Kind, Order: e.OrderIndex, URL: "", Revision: e.CurrentRevision, Updated: e.UpdatedAt}
 			if n.Title == "" {
 				n.Title = e.Name()
 			}
@@ -132,17 +140,19 @@ func buildTree(entries []models.Entry, prefix string) []*NavNode {
 				p.Title = e.Title
 				p.URL = prefix + e.HTMLPath()
 				p.Order = e.OrderIndex
+				p.Revision = e.CurrentRevision
+				p.Size = e.SizeBytes
 				continue
 			}
-			p.Children = append(p.Children, &NavNode{Title: e.Title, URL: prefix + e.HTMLPath(), Path: e.Path, Kind: e.Kind, Order: e.OrderIndex})
+			p.Children = append(p.Children, &NavNode{Title: e.Title, URL: prefix + e.HTMLPath(), Path: e.Path, Kind: e.Kind, Order: e.OrderIndex, Revision: e.CurrentRevision, Size: e.SizeBytes, Updated: e.UpdatedAt})
 		case models.KindFile:
 			if p, ok := byPath[parentDir(e.Path)]; ok {
-				p.Children = append(p.Children, &NavNode{Title: e.Name(), URL: prefix + e.Path, Path: e.Path, Kind: e.Kind})
+				p.Children = append(p.Children, &NavNode{Title: e.Name(), URL: prefix + e.Path, Path: e.Path, Kind: e.Kind, Revision: e.CurrentRevision, Size: e.SizeBytes, Updated: e.UpdatedAt})
 			}
 		case models.KindAsset:
 			if strings.HasSuffix(e.Path, ".pdf") {
 				if p, ok := byPath[parentDir(e.Path)]; ok {
-					p.Children = append(p.Children, &NavNode{Title: e.Name(), URL: prefix + e.Path, Path: e.Path, Kind: e.Kind})
+					p.Children = append(p.Children, &NavNode{Title: e.Name(), URL: prefix + e.Path, Path: e.Path, Kind: e.Kind, Revision: e.CurrentRevision, Size: e.SizeBytes, Updated: e.UpdatedAt})
 				}
 			}
 		}
@@ -166,7 +176,40 @@ func buildTree(entries []models.Entry, prefix string) []*NavNode {
 	}
 	sortNodes(root)
 	prune(root)
+	rollUp(root)
 	return root.Children
+}
+
+// rollUp gives every directory the newest timestamp beneath it, so a folder
+// row in the listing reports when its contents last changed rather than when
+// the folder itself was created.
+func rollUp(n *NavNode) time.Time {
+	newest := n.Updated
+	for _, ch := range n.Children {
+		if t := rollUp(ch); t.After(newest) {
+			newest = t
+		}
+	}
+	n.Updated = newest
+	return newest
+}
+
+// folderPaths flattens the tree into every directory path, so the move field
+// can offer the folders that already exist instead of asking for a guess.
+func folderPaths(nodes []*NavNode) []string {
+	var out []string
+	var walk func(ns []*NavNode)
+	walk = func(ns []*NavNode) {
+		for _, n := range ns {
+			if n.Kind == models.KindDirectory {
+				out = append(out, n.Path)
+				walk(n.Children)
+			}
+		}
+	}
+	walk(nodes)
+	sort.Strings(out)
+	return out
 }
 
 // prune drops directories that contain no pages (for example an assets-only
