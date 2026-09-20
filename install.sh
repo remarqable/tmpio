@@ -38,9 +38,9 @@ DRY_RUN=0
 # Colour only when stdout is a terminal that wants it. Piped into a file, a
 # pager or `head`, these would otherwise arrive as literal [1m noise.
 if [ -t 1 ] && [ -z "${NO_COLOR:-}" ] && [ "${TERM:-dumb}" != "dumb" ]; then
-  RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; DIM=$'\033[2m'; NC=$'\033[0m'
+  RED=$'\033[0;31m'; GREEN=$'\033[0;32m'; YELLOW=$'\033[0;33m'; CYAN=$'\033[0;36m'; DIM=$'\033[2m'; NC=$'\033[0m'
 else
-  RED=""; GREEN=""; DIM=""; NC=""
+  RED=""; GREEN=""; YELLOW=""; CYAN=""; DIM=""; NC=""
 fi
 
 say()  { printf '%s\n' "$*"; }
@@ -117,8 +117,13 @@ self_update() {
   # A rename, not a copy: the running shell keeps reading the old inode, so
   # overwriting the file it is executing cannot corrupt this run.
   mv -f "$tmpf" "$0" || { rm -f "$tmpf"; return 0; }
-  printf '  %sthis script updated to %s (was %s); restarting%s\n' \
-    "${DIM}" "${newv:-newer}" "${VERSION}" "${NC}"
+  if [ "${newv:-}" = "$VERSION" ]; then
+    # Same version string, different content: a fix published without a bump.
+    printf '  %srefreshed this script (%s); restarting%s\n' "${DIM}" "${VERSION}" "${NC}"
+  else
+    printf '  %sthis script updated to %s (was %s); restarting%s\n' \
+      "${DIM}" "${newv:-newer}" "${VERSION}" "${NC}"
+  fi
   TMP_NO_SELF_UPDATE=1 exec "$0" "$@"
 }
 
@@ -153,48 +158,109 @@ wait_healthy() {
 manage_update() {
   local before after
   before=$(running_version)
-  say "  ${DIM}running${NC}   ${before}"
-  say "  ${DIM}pulling…${NC}"
-  docker compose pull -q 2>/dev/null || docker compose pull
+  say ""
+  say "  ${CYAN}tmp${NC} ${before}"
+  rule
+  say "  ${DIM}pulling the current image…${NC}"
+  # Compose narrates every layer; the useful news is the version, below.
+  docker compose pull -q >/dev/null 2>&1 || docker compose pull >/dev/null 2>&1 || {
+    say "  ${RED}could not pull the image${NC}"
+    docker compose pull
+    exit 1
+  }
 
   # `up -d` leaves the container alone when the image has not changed, so it
   # is safe either way and the version afterwards tells the truth.
-  docker compose up -d >/dev/null
+  docker compose up -d >/dev/null 2>&1
   wait_healthy || {
-    say "  ${RED}the app did not come up healthy. Recent log:${NC}"
+    say "  ${RED}the app did not come up healthy — the last 40 lines:${NC}"
+    rule
     docker compose logs --tail 40 app >&2
     exit 1
   }
 
   after=$(running_version)
+  rule
   if [ "$before" = "$after" ]; then
-    say "  already on ${after} ${DIM}— nothing to do${NC}"
+    say "  ${GREEN}✓${NC} already on ${after} ${DIM}— nothing to do${NC}"
   else
-    say "  ${DIM}now on${NC}    ${after} ${DIM}(was ${before})${NC}"
+    say "  ${GREEN}✓${NC} now on ${after} ${DIM}(was ${before})${NC}"
   fi
+  say ""
+}
+
+# Everything here lays out inside 80 columns. `docker compose ps` is about 120
+# wide and wraps into a mess on a normal terminal, so the same facts are
+# printed in a table this script controls the width of.
+WIDTH=74
+
+fit() { # fit <text> <width>
+  local t="$1" w="$2"
+  if [ "${#t}" -le "$w" ]; then printf '%s' "$t"; else printf '%s…' "${t:0:$((w - 1))}"; fi
+}
+
+rule() {
+  local line
+  line=$(printf '%*s' "$WIDTH" '' | tr ' ' '-')
+  # A box-drawing rule where the terminal can show one; the script already
+  # prints · and … so UTF-8 is assumed, but fall back rather than gamble.
+  case "${LANG:-}${LC_ALL:-}" in
+    *UTF-8*|*utf8*) line=$(printf '%*s' "$WIDTH" '' | sed 's/ /\xe2\x94\x80/g') ;;
+  esac
+  printf '  %s%s%s\n' "$DIM" "$line" "$NC"
+}
+
+# Green when it is fine, red when it is not, yellow while it is deciding.
+health_colour() {
+  case "$1" in
+    healthy|running)             printf '%s' "$GREEN" ;;
+    starting|created|restarting) printf '%s' "$YELLOW" ;;
+    *)                           printf '%s' "$RED" ;;
+  esac
+}
+
+service_rows() {
+  local svc id state uptime image
+  local services
+  services=$(docker compose config --services 2>/dev/null || true)
+  # app first: it is the one being asked about, and compose lists db first.
+  for svc in $(printf '%s\n' $services | grep -x app || true) \
+             $(printf '%s\n' $services | grep -vx app || true); do
+    id=$(docker compose ps -q "$svc" 2>/dev/null || true)
+    if [ -z "$id" ]; then
+      printf '  %-7s %s%-9s%s %s%s%s\n' "$svc" "$RED" "stopped" "$NC" "$DIM" "not running" "$NC"
+      continue
+    fi
+    state=$(docker inspect "$id" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || echo unknown)
+    # "Up 36 minutes (healthy)" -> "up 36 minutes"
+    uptime=$(docker ps -a --filter "id=$id" --format '{{.Status}}' 2>/dev/null | sed 's/ *(.*)//' | tr 'A-Z' 'a-z')
+    image=$(docker inspect "$id" --format '{{.Config.Image}}' 2>/dev/null || echo '-')
+    printf '  %-7s %s%-9s%s %-16s %s%s%s\n' \
+      "$svc" "$(health_colour "$state")" "$state" "$NC" \
+      "$(fit "$uptime" 16)" "$DIM" "$(fit "$image" 30)" "$NC"
+  done
 }
 
 manage_status() {
-  say "  ${DIM}version${NC}   $(running_version)"
-  say "  directory ${DIR}"
+  local origin
+  origin=$(grep -m1 '^APP_ORIGIN=' "${DIR}/.env" 2>/dev/null | cut -d= -f2- || true)
   say ""
-  docker compose ps
+  say "  ${CYAN}tmp${NC} $(running_version)${origin:+   ${GREEN}${origin}${NC}}"
+  rule
+  service_rows
 }
 
 # What a bare run prints when tmp is already installed here.
 menu() {
   cd "$DIR"
-  say ""
-  say "  tmp is installed in ${DIR}"
-  say ""
   manage_status
-  say ""
-  say "  $0 update     ${DIM}pull the current image and restart onto it${NC}"
-  say "  $0 status     ${DIM}running, healthy, which version${NC}"
-  say "  $0 logs       ${DIM}follow the server log${NC}"
-  say "  $0 restart    ${DIM}restart without changing version${NC}"
-  say ""
-  say "  ${DIM}To reconfigure (domain, port, proxy) pass the flags: --help${NC}"
+  rule
+  say "  update    ${DIM}pull the current image and restart onto it${NC}"
+  say "  status    ${DIM}running, healthy, which version${NC}"
+  say "  logs      ${DIM}follow the server log${NC}"
+  say "  restart   ${DIM}restart without changing version${NC}"
+  rule
+  say "  ${DIM}run${NC} $0 <command>${DIM}   ·   --help to reconfigure${NC}"
   say ""
 }
 
