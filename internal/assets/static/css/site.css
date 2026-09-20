@@ -505,7 +505,7 @@ body.tmp-site {
    -------------------------------------------------------------------------- */
 .tmp-main { padding: 1.25rem 0 4rem; }
 
-.tmp-crumbs { max-width: var(--tmp-measure); margin: 0 auto 0.75rem; padding: 0 var(--tmp-article-pad); font-size: 0.8125rem; }
+.tmp-crumbs { max-width: var(--tmp-measure); margin: 0 auto 0.75rem 0; padding: 0 var(--tmp-article-pad); font-size: 0.8125rem; }
 .tmp-crumbs ol {
   display: flex;
   flex-wrap: wrap;
@@ -524,7 +524,11 @@ body.tmp-site {
 
 .tmp-article {
   max-width: var(--tmp-measure);
-  margin: 0 auto;
+  /* Sits against the sidebar rather than floating in the middle of the main
+     column. The measure still caps the line length; it just starts where the
+     navigation ends, so the eye travels a short way from the tree to the text
+     instead of across a gap of empty page. */
+  margin: 0 auto 0 0;
   padding: 0 var(--tmp-article-pad);
 }
 .tmp-article-wide { max-width: none; }
