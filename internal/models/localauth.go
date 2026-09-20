@@ -122,7 +122,8 @@ func VerifyPassword(encoded, plain string) bool {
 var dummyHash, _ = HashPassword("this password is never correct")
 
 // EnsureLocalOwner provisions the single local owner account from the
-// environment at startup. A missing account is created with its organization
+// environment at startup, and marks it as the installation's administrator:
+// it is named by the server's own configuration, so it is the operator's. A missing account is created with its organization
 // and initial site files, exactly as a first sign-in would. An existing account
 // keeps its content, and its password is rotated to the one supplied. Passing
 // an empty password leaves an existing credential untouched, so an operator can
@@ -141,6 +142,13 @@ func EnsureLocalOwner(ctx context.Context, username, password, initialConfig, in
 	err := db.Get().WithContext(ctx).Where("username = ?", username).First(&existing).Error
 	switch {
 	case err == nil:
+		// The account named by the server's own environment administers the
+		// installation. Set it on every boot, not just at creation, so an
+		// instance provisioned before this existed is repaired rather than
+		// left with settings nobody can reach.
+		if err := SetInstanceAdmin(ctx, existing.UserID); err != nil {
+			return false, err
+		}
 		if password == "" {
 			return false, nil
 		}
@@ -176,6 +184,9 @@ func EnsureLocalOwner(ctx context.Context, username, password, initialConfig, in
 	}
 	cred := &LocalCredential{UserID: user.ID, Username: username, PasswordHash: hash}
 	if err := db.Get().WithContext(ctx).Create(cred).Error; err != nil {
+		return false, err
+	}
+	if err := SetInstanceAdmin(ctx, user.ID); err != nil {
 		return false, err
 	}
 	return true, nil

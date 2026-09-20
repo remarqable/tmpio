@@ -34,6 +34,7 @@ func TestInstanceSettingsAreNotForEveryOwner(t *testing.T) {
 	var userID int64
 	require.NoError(t, db.OwnerForTest(t).Raw(`SELECT id FROM "user" WHERE email = ?`, "owner@x.test").Scan(&userID).Error)
 	require.NoError(t, models.SetInstanceAdmin(t.Context(), userID))
+	_ = userID
 
 	admin := h.signIn("owner@x.test")
 	res = admin.do("GET", "/admin/server", nil, nil)
@@ -74,4 +75,39 @@ func TestInstanceAIKeyRoundTrip(t *testing.T) {
 	set, err = models.GetInstanceSetting(ctx)
 	require.NoError(t, err)
 	require.Empty(t, set.AIAPIKey)
+}
+
+// TestLocalOwnerAdministersTheInstance: the settings page was gated on a flag
+// that nothing set, so the instance settings were unreachable on every
+// installation. The account named by the server's own environment is the
+// operator's, and gets the flag — including on an instance created before the
+// flag existed.
+func TestLocalOwnerAdministersTheInstance(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.LocalAuth = true
+
+	require.True(t, provisionOwner(t, "admin", ownerPassword))
+
+	var isAdmin bool
+	require.NoError(t, db.OwnerForTest(t).
+		Raw(`SELECT u.is_instance_admin FROM "user" u JOIN local_credential c ON c.user_id = u.id WHERE c.username = ?`, "admin").
+		Scan(&isAdmin).Error)
+	require.True(t, isAdmin, "the account the server provisions administers the installation")
+
+	// An instance that predates the flag is repaired on the next boot.
+	require.NoError(t, db.OwnerForTest(t).Exec(`UPDATE "user" SET is_instance_admin = false`).Error)
+	require.False(t, provisionOwner(t, "admin", ownerPassword), "an existing account is not recreated")
+	require.NoError(t, db.OwnerForTest(t).
+		Raw(`SELECT u.is_instance_admin FROM "user" u JOIN local_credential c ON c.user_id = u.id WHERE c.username = ?`, "admin").
+		Scan(&isAdmin).Error)
+	require.True(t, isAdmin, "a boot repairs an owner that lacks the flag")
+
+	// And the page they were locked out of now answers.
+	anon := h.anon()
+	status, _ := postForm(anon, "/auth/local", url.Values{"username": {"admin"}, "password": {ownerPassword}}, h.origin)
+	require.Equal(t, 302, status)
+	res := anon.do("GET", "/admin/server", nil, nil)
+	body := readAll(res)
+	require.Equal(t, 200, res.StatusCode, "the instance administrator reaches the settings")
+	require.Contains(t, body, `action="/admin/server/ai"`)
 }
