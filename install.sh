@@ -98,15 +98,13 @@ self_update() {
   command -v curl >/dev/null 2>&1 || return 0
 
   tmpf="${dir}/.install.sh.new"
-  # raw.githubusercontent caches at the edge, and two hosts can be told
-  # different things for several minutes. An updater that accepts a stale
-  # answer reports "already current" and is wrong, so ask past the cache.
-  local url="$RAW_URL"
-  case "$url" in
-    http://*|https://*) url="${url}?cb=$(date +%s)" ;;
-  esac
-  if ! curl -fsSL --max-time 20 -H 'Cache-Control: no-cache' -H 'Pragma: no-cache' \
-       "$url" -o "$tmpf" 2>/dev/null; then
+  # raw.githubusercontent sets max-age=300 and serves from regional edges, so
+  # for up to five minutes after a push two hosts can be told different
+  # things. Neither a no-cache header nor a cache-busting query parameter
+  # gets past it - Fastly normalises the query away and ignores the header -
+  # so this simply reads what it is given. The window closes by itself; the
+  # only cost is that an update run inside it reports "already current".
+  if ! curl -fsSL --max-time 20 "$RAW_URL" -o "$tmpf" 2>/dev/null; then
     rm -f "$tmpf"; return 0          # offline, or GitHub is having a day
   fi
   # Never replace this script with something that is not a working script.
