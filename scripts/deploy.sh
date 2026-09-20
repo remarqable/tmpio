@@ -22,8 +22,11 @@ HOST=${HOST:-root@tmp.io}; ORIGIN=${ORIGIN:-https://tmp.io}; PORT=8100
 # before touching the database or the host.
 if ssh "$HOST" 'docker ps --format "{{.Image}}" 2>/dev/null | grep -q "ghcr.io/remarqable/tmpio"'; then
   echo "error: $HOST runs tmp from the container image, not a bare binary." >&2
+  echo "" >&2
   echo "  release:  git tag -a vX.Y.Z -m ... && git push origin vX.Y.Z" >&2
-  echo "  deploy:   ssh $HOST 'cd /opt/tmp && docker compose pull && docker compose up -d'" >&2
+  echo "  deploy:   make update HOST=$HOST" >&2
+  echo "  on host:  /opt/tmp/install.sh update" >&2
+  echo "" >&2
   echo "  (FORCE_SYSTEMD=1 runs this legacy path anyway)" >&2
   [ "${FORCE_SYSTEMD:-}" = "1" ] || exit 1
 fi

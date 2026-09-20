@@ -4,15 +4,29 @@ PG_DATA?=data/pg16
 PG_PORT?=5433
 ENV?=config/local.env
 
-.PHONY: installer-smoke update reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
+.DEFAULT_GOAL := help
 
-deploy: ## Legacy bare-binary deploy (refuses a host running the container image; see scripts/deploy.sh)
-	@test -f config/deploy.env || { echo "create config/deploy.env from config/deploy.env.example"; exit 1; }
-	@set -a && . ./config/deploy.env && set +a && scripts/deploy.sh
+help: ## Show this help
+	@tty -s <&1 && { B=$$(printf '\033[1m'); C=$$(printf '\033[36m'); D=$$(printf '\033[2m'); N=$$(printf '\033[0m'); } || { B=; C=; D=; N=; }; \
+	printf '\n  %stmp%s  %smake <target>%s\n' "$$B" "$$N" "$$D" "$$N"; \
+	awk -v c="$$C" -v d="$$D" -v n="$$N" ' \
+	  /^##@/ { printf "\n  %s%s%s\n", d, substr($$0, 5), n; next } \
+	  /^[a-zA-Z0-9_-]+:.*##/ { \
+	    split($$0, a, ":.*##"); \
+	    printf "  %s%-16s%s %s\n", c, a[1], n, a[2] \
+	  }' $(MAKEFILE_LIST); \
+	printf '\n  %sHOST=root@example.com make update%s  to act on another host\n\n' "$$d" "$$n"
 
-update: ## Update a host to the current release, the way a self-hoster does
+.PHONY: help installer-smoke update reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
+
+##@ Deploy
+update: ## Update a host to the current release (HOST= to pick one)
 	@scp -q install.sh $${HOST:-root@tmp.io}:/opt/tmp/install.sh
 	@ssh $${HOST:-root@tmp.io} 'chmod 0755 /opt/tmp/install.sh && /opt/tmp/install.sh update'
+
+deploy: ## Legacy bare-binary deploy; refuses a host running the image
+	@test -f config/deploy.env || { echo "create config/deploy.env from config/deploy.env.example"; exit 1; }
+	@set -a && . ./config/deploy.env && set +a && scripts/deploy.sh
 
 deploy-status: ## Service, health and recent errors on the server
 	@ssh $${HOST:-root@tmp.io} 'systemctl is-active tmp; systemctl status tmp --no-pager | sed -n 1,5p; curl -s 127.0.0.1:8100/readyz; echo; journalctl -u tmp --since "1 hour ago" --no-pager | grep -c ERR || true'
@@ -23,9 +37,10 @@ deploy-logs: ## Tail the server logs
 tunnel: ## Expose the server over public HTTPS with ngrok (MCP clients need https)
 	scripts/tunnel.sh
 
-tunnel-stop:
+tunnel-stop: ## Stop the ngrok tunnel
 	scripts/tunnel.sh stop
 
+##@ Develop
 run: ## Run the API with config/local.env
 	@set -a && . ./$(ENV) && set +a && go run -ldflags="$(LDFLAGS)" ./cmd/api
 
@@ -33,7 +48,7 @@ VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 BUILD_DATE ?= $(shell date -u +%Y-%m-%d)
 LDFLAGS = -X github.com/remarqable/tmpio/internal/version.Version=$(VERSION) -X github.com/remarqable/tmpio/internal/version.Date=$(BUILD_DATE)
 
-build:
+build: ## Build the binaries into bin/
 	go build -ldflags="$(LDFLAGS)" -o bin/ ./cmd/...
 
 kill: ## Stop a server started by make run
@@ -48,22 +63,24 @@ kill: ## Stop a server started by make run
 	   esac; \
 	 done
 
-fmt:
+fmt: ## gofmt the tree
 	gofmt -l -w cmd internal
 
-vet:
+vet: ## go vet the tree
 	go vet ./...
 
+##@ Test
 test: ## Full suite: unit + PostgreSQL integration (needs tmp_test database)
 	@set -a && . ./$(ENV) && set +a && go test ./... -race -count=1 -p 1
 
 test-unit: ## Unit tests only (no database)
 	go test ./internal/platform/render/... ./internal/models/ -run 'Path|Config|Principal|Token|Scopes' -race -count=1
 
+##@ Database
 migrate: ## Apply migrations as the owner role
 	@set -a && . ./$(ENV) && set +a && goose -dir migrations postgres "$$DATABASE_OWNER_URL" up && goose -dir migrations postgres "$$TEST_DATABASE_OWNER_URL" up
 
-migrate-status:
+migrate-status: ## Show which migrations have been applied
 	@set -a && . ./$(ENV) && set +a && goose -dir migrations postgres "$$DATABASE_OWNER_URL" status
 
 migrate-down: ## Roll back one migration on the test database (validation only)
@@ -80,7 +97,7 @@ db-init: ## Create a project-local PostgreSQL 16 cluster, roles and databases
 db-start: ## Start the local cluster (no-op if it is already running)
 	@$(PG_BIN)/pg_ctl -D $(PG_DATA) status >/dev/null 2>&1 && echo "postgres already running on port $(PG_PORT)" || $(PG_BIN)/pg_ctl -D $(PG_DATA) -l data/pg16.log start
 
-db-stop:
+db-stop: ## Stop the local cluster
 	$(PG_BIN)/pg_ctl -D $(PG_DATA) stop
 
 reset: ## Empty the development database: next sign-in starts a fresh site
@@ -102,6 +119,7 @@ reset: ## Empty the development database: next sign-in starts a fresh site
 db-reset: ## Drop and recreate the test database schema
 	@set -a && . ./$(ENV) && set +a && goose -dir migrations postgres "$$TEST_DATABASE_OWNER_URL" down-to 0 && goose -dir migrations postgres "$$TEST_DATABASE_OWNER_URL" up
 
+##@ Checks
 check: ## The blueprint's boundary checks
 	@! grep -rn "db.Unscoped()" internal/controllers internal/models internal/mcp || { echo "owner connection used in request code"; exit 1; }
 	@! grep -rln "db.EnterTenantScope(" internal | grep -v "internal/models/user.go\|internal/platform/db/" || { echo "EnterTenantScope is for tenant provisioning only"; exit 1; }
@@ -115,7 +133,7 @@ installer-check: ## The installer's embedded files must match the ones in the re
 vulncheck: ## Report known vulnerabilities in the dependency graph that this code reaches
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
-ci: fmt vet build check test
+ci: fmt vet build check test ## Everything CI runs
 
 installer-smoke: ## The installer must survive being run as the installed copy
 	@set -e; \
