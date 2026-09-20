@@ -103,7 +103,13 @@ EOF
 # leaves both alone.
 self_update() {
   local dir tmpf newv
-  [ "${TMP_NO_SELF_UPDATE:-0}" = "1" ] && { SELF_UPDATE_STATE="off"; return 0; }
+  # The relaunched process carries TMP_NO_SELF_UPDATE so it cannot loop, but
+  # it has just updated - saying "check skipped" there would be a lie about
+  # the one run where something actually happened.
+  if [ "${TMP_NO_SELF_UPDATE:-0}" = "1" ]; then
+    [ "$SELF_UPDATE_STATE" = "updated" ] || SELF_UPDATE_STATE="off"
+    return 0
+  fi
   [ -f "$0" ] || { SELF_UPDATE_STATE="piped"; return 0; }
   dir=$(cd "$(dirname "$0")" && pwd)
   [ -d "${dir}/.git" ] && { SELF_UPDATE_STATE="checkout"; return 0; }
@@ -566,7 +572,7 @@ while [ $# -gt 0 ]; do
     --print-compose) compose_file; exit 0 ;;
     --no-self-update) shift ;;   # handled before anything else
     --dry-run)       DRY_RUN=1; shift ;;
-    -h|--help)       usage; exit 0 ;;
+    -h|--help)       usage; installer_line; exit 0 ;;
     *)               die "unknown option: $1 (try --help)" ;;
   esac
 done
