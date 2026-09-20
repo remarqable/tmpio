@@ -314,7 +314,7 @@ func (d *Deps) serveHTML(c *gin.Context, a *addr, rendered string) {
 		}
 		site.Listing = d.listingFor(ctx, site, res.Directory)
 		site.Folders = folderPaths(site.Sidebar)
-		site.Breadcrumbs = breadcrumbs(a.Prefix, res.Directory.Path, true)
+		site.Breadcrumbs = titled(breadcrumbs(a.Prefix, res.Directory.Path, true), res.Directory.Title)
 		site.CurrentHTML = a.Prefix + res.Directory.HTMLPath()
 		data := gin.H{"Site": site, "Error": c.Query("error")}
 		if site.IsOwner {
@@ -353,7 +353,7 @@ func (d *Deps) serveHTML(c *gin.Context, a *addr, rendered string) {
 	site.Entry = e
 	site.CurrentDir = parentDir(e.Path)
 	site.Title = page.Title
-	site.Breadcrumbs = breadcrumbs(a.Prefix, e.Path, false)
+	site.Breadcrumbs = titled(breadcrumbs(a.Prefix, e.Path, false), site.Page.Title)
 	site.CurrentHTML = a.Prefix + e.HTMLPath()
 	c.Header("ETag", etag(e))
 	d.render(c, http.StatusOK, "pages/site/page.html", "layout/site", gin.H{"Site": site, "Saved": c.Query("saved")})

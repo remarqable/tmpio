@@ -220,3 +220,22 @@ func TestRollUpGivesFoldersATimestamp(t *testing.T) {
 	assert.Equal(t, child.Updated, dir.Updated, "a folder takes the newest timestamp beneath it")
 	assert.Equal(t, child.Updated, root.Updated, "and it climbs all the way up")
 }
+
+// TestBreadcrumbUsesTheRealTitle is the "Crm options" bug: the last crumb was
+// built by title-casing the slug, which cannot carry case, while the page's
+// own title sat unused directly below it.
+func TestBreadcrumbUsesTheRealTitle(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	writePage(t, owner, "/business/crm-options.md",
+		"---\ntitle: CRM options for a two person team\n---\n\nComparing three.\n")
+
+	res := owner.do("GET", "/business/crm-options", nil, nil)
+	body := readAll(res)
+	require.Equal(t, 200, res.StatusCode)
+
+	crumbs := body[strings.Index(body, `class="tmp-crumbs"`):]
+	crumbs = crumbs[:strings.Index(crumbs, "</nav>")]
+	assert.Contains(t, crumbs, "CRM options for a two person team")
+	assert.NotContains(t, crumbs, "Crm options", "the slug must not be title-cased over the real title")
+}

@@ -7,12 +7,12 @@
     {{if .Site.Page.Description}}<p class="tmp-lead">{{.Site.Page.Description}}</p>{{end}}
     <div class="tmp-meta">
       {{range .Site.Page.Tags}}<span class="tmp-tag">{{.}}</span>{{end}}
-      <span>{{t "content.revision"}} {{.Site.Page.Revision}} · {{.Site.Page.UpdatedAt}}</span>
+      <span class="tmp-meta-data">{{t "content.revision"}} {{.Site.Page.Revision}} · {{.Site.Page.UpdatedAt}}</span>
       <a href="{{.Site.Page.RawURL}}">{{t "site.raw"}}</a> · <a href="{{.Site.Page.JSONURL}}">{{t "site.json"}}</a>
     </div>
     {{if .Site.IsOwner}}
     <div class="tmp-actions">
-      <a class="tmp-btn tmp-btn-secondary" href="/edit{{.Site.Entry.HTMLPath}}">{{template "icon" "edit"}} {{t "content.edit"}}</a>
+      <a class="tmp-btn" href="/edit{{.Site.Entry.HTMLPath}}">{{template "icon" "edit"}} {{t "content.edit"}}</a>
       <a class="tmp-btn tmp-btn-secondary" href="/history{{.Site.Entry.HTMLPath}}">{{template "icon" "history"}} {{t "content.history"}}</a>
       <a class="tmp-btn tmp-btn-secondary" href="/share{{.Site.Entry.HTMLPath}}">{{template "icon" "share"}} {{t "content.share"}}</a>
       <button class="tmp-btn tmp-btn-secondary" type="button" data-open-dialog="tmp-move">{{template "icon" "move"}} {{t "content.move"}}</button>

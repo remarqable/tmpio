@@ -293,6 +293,18 @@ func (d *Deps) listingFor(ctx context.Context, site *SiteView, dir *models.Entry
 	return nil
 }
 
+// titled replaces the last crumb's slug-derived title with the real one. The
+// slug cannot carry case, so "crm-options" became "Crm options" while the
+// page's own title, "CRM options for a two person team", sat unused directly
+// below it.
+func titled(crumbs []Crumb, title string) []Crumb {
+	if title == "" || len(crumbs) == 0 {
+		return crumbs
+	}
+	crumbs[len(crumbs)-1].Title = title
+	return crumbs
+}
+
 func breadcrumbs(prefix, p string, isDir bool) []Crumb {
 	out := []Crumb{{Title: i18n.T("en", "site.home"), URL: prefix + "/"}}
 	if p == "/" || p == "/index.md" {
