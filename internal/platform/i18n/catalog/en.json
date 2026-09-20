@@ -226,7 +226,6 @@
   "site.skip": "Skip to content",
   "site.raw": "Markdown",
   "site.json": "JSON",
-  "site.private": "Private site",
   "site.shared_document": "Shared document",
   "site.nav_primary": "Primary",
   "site.warnings_owner": "Warnings (owner only)",

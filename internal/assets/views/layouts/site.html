@@ -18,8 +18,8 @@
 <header class="tmp-header">
   <div class="tmp-header-inner">
     <div class="tmp-brand">
-      {{if .Site.Shared}}<span class="tmp-brand-name">{{.Site.Name}}</span>{{else}}<a class="tmp-brand-name" href="{{.Site.Prefix}}/">{{.Site.Name}}</a>{{end}}
-      {{if .Site.Shared}}<span class="tmp-badge tmp-badge-warn">{{t "site.shared_document"}}</span>{{else if eq .Site.Mode "admin"}}<span class="tmp-badge tmp-badge-admin">{{t "admin.badge"}}</span>{{else}}<span class="tmp-badge">{{t "site.private"}}</span>{{end}}
+      {{if .Site.Shared}}<span class="tmp-brand-name">tmp<span class="tmp-brand-dot">.</span></span>{{else}}<a class="tmp-brand-name" href="{{.Site.Prefix}}/" title="{{.Site.Name}}">tmp<span class="tmp-brand-dot">.</span></a>{{end}}
+      {{if .Site.Shared}}<span class="tmp-badge tmp-badge-warn">{{t "site.shared_document"}}</span>{{else if eq .Site.Mode "admin"}}<span class="tmp-badge tmp-badge-admin">{{t "admin.badge"}}</span>{{end}}
     </div>
     {{if not .Site.Shared}}
     <nav class="tmp-nav" aria-label="{{t "site.nav_primary"}}">

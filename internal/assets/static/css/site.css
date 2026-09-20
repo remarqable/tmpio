@@ -297,9 +297,12 @@ body.tmp-site {
   border-bottom: 1px solid var(--tmp-border);
 }
 .tmp-header-inner {
-  display: flex;
+  /* The same columns as the body grid, so the search box begins exactly where
+     the content does rather than wherever the brand happens to end. */
+  display: grid;
+  grid-template-columns: var(--tmp-sidebar-w) minmax(0, 1fr) auto;
   align-items: center;
-  gap: 1rem;
+  gap: 0 var(--tmp-gutter);
   height: 100%;
   padding: 0 var(--tmp-gutter);
   max-width: 1440px;
@@ -323,6 +326,7 @@ body.tmp-site {
   text-overflow: ellipsis;
 }
 .tmp-brand-name:hover { color: var(--tmp-fg); text-decoration: none; }
+.tmp-brand-dot { color: var(--tmp-accent); }
 
 .tmp-nav {
   display: flex;
@@ -363,9 +367,11 @@ body.tmp-site {
 }
 .tmp-menu-btn[aria-expanded="true"] { background: var(--tmp-bg-subtle); }
 
-.tmp-search { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0 0.5rem; }
+/* The article pads its text in from the column edge, so the search box takes
+   the same padding and its left edge lands on the same line as the heading. */
+.tmp-search { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0 var(--tmp-article-pad); flex: 1 1 auto; min-width: 0; max-width: 34rem; }
 .tmp-search input {
-  width: 12rem;
+  width: 100%;
   max-width: 100%;
   padding: 0.35em 0.7em;
   font-size: 0.9rem;
@@ -895,6 +901,8 @@ html[data-theme="editorial"] .tmp-content blockquote { font-family: var(--tmp-fo
   .tmp-menu-btn { display: inline-flex; align-items: center; flex-shrink: 0; }
   .tmp-search input { width: 8rem; }
   .tmp-owner-link { margin-left: 0; }
+  .tmp-header-inner { display: flex; gap: 1rem; }
+  .tmp-search { max-width: none; margin-left: 0; }
 
   .tmp-body,
   .tmp-body:not(:has(> .tmp-sidebar)),
