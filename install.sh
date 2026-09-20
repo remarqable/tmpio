@@ -25,6 +25,11 @@ VERSION="1.1.0"
 # Where this script updates itself from. Override for a fork or a branch.
 RAW_URL=${TMP_RAW_URL:-https://raw.githubusercontent.com/remarqable/tmpio/main/install.sh}
 
+# What the self-update check concluded. The relaunched process learns it had
+# just updated from the environment, since it cannot see what happened before
+# it started.
+if [ -n "${TMP_UPDATED_FROM:-}" ]; then SELF_UPDATE_STATE="updated"; else SELF_UPDATE_STATE="unchecked"; fi
+
 # TMP_DIR lets the verbs find an install that was made with --dir, since the
 # flags are parsed after the verb has already had to locate it.
 DIR=${TMP_DIR:-/opt/tmp}
@@ -98,12 +103,12 @@ EOF
 # leaves both alone.
 self_update() {
   local dir tmpf newv
-  [ "${TMP_NO_SELF_UPDATE:-0}" = "1" ] && return 0
-  [ -f "$0" ] || return 0
+  [ "${TMP_NO_SELF_UPDATE:-0}" = "1" ] && { SELF_UPDATE_STATE="off"; return 0; }
+  [ -f "$0" ] || { SELF_UPDATE_STATE="piped"; return 0; }
   dir=$(cd "$(dirname "$0")" && pwd)
-  [ -d "${dir}/.git" ] && return 0
-  [ -w "$0" ] || return 0
-  command -v curl >/dev/null 2>&1 || return 0
+  [ -d "${dir}/.git" ] && { SELF_UPDATE_STATE="checkout"; return 0; }
+  [ -w "$0" ] || { SELF_UPDATE_STATE="read-only"; return 0; }
+  command -v curl >/dev/null 2>&1 || { SELF_UPDATE_STATE="no curl"; return 0; }
 
   tmpf="${dir}/.install.sh.new"
   # raw.githubusercontent sets max-age=300 and serves from regional edges, so
@@ -113,17 +118,17 @@ self_update() {
   # so this simply reads what it is given. The window closes by itself; the
   # only cost is that an update run inside it reports "already current".
   if ! curl -fsSL --max-time 20 "$RAW_URL" -o "$tmpf" 2>/dev/null; then
-    rm -f "$tmpf"; return 0          # offline, or GitHub is having a day
+    rm -f "$tmpf"; SELF_UPDATE_STATE="offline"; return 0
   fi
   # Never replace this script with something that is not a working script.
   if [ ! -s "$tmpf" ] \
      || ! head -1 "$tmpf" | grep -q '^#!/usr/bin/env bash' \
      || ! grep -q '^VERSION=' "$tmpf" \
      || ! bash -n "$tmpf" 2>/dev/null; then
-    rm -f "$tmpf"; return 0
+    rm -f "$tmpf"; SELF_UPDATE_STATE="bad download"; return 0
   fi
   if cmp -s "$tmpf" "$0"; then
-    rm -f "$tmpf"; return 0          # already current
+    rm -f "$tmpf"; SELF_UPDATE_STATE="current"; return 0
   fi
 
   newv=$(grep -m1 '^VERSION=' "$tmpf" | cut -d'"' -f2)
@@ -131,14 +136,7 @@ self_update() {
   # A rename, not a copy: the running shell keeps reading the old inode, so
   # overwriting the file it is executing cannot corrupt this run.
   mv -f "$tmpf" "$0" || { rm -f "$tmpf"; return 0; }
-  if [ "${newv:-}" = "$VERSION" ]; then
-    # Same version string, different content: a fix published without a bump.
-    printf '  %srefreshed this script (%s); restarting%s\n' "${DIM}" "${VERSION}" "${NC}"
-  else
-    printf '  %sthis script updated to %s (was %s); restarting%s\n' \
-      "${DIM}" "${newv:-newer}" "${VERSION}" "${NC}"
-  fi
-  TMP_NO_SELF_UPDATE=1 exec "$0" "$@"
+  TMP_NO_SELF_UPDATE=1 TMP_UPDATED_FROM="$VERSION" exec "$0" "$@"
 }
 
 # --- managing an install that already exists -------------------------------
@@ -183,6 +181,22 @@ first_arg() {
   for a in "$@"; do
     case "$a" in -*) ;; *) printf '%s' "$a"; return ;; esac
   done
+}
+
+# Shown on every run a person looks at, so the version in play is never a
+# guess and the self-update check never happens invisibly.
+installer_line() {
+  local note
+  case "$SELF_UPDATE_STATE" in
+    updated)  note="${GREEN}self-updated from ${TMP_UPDATED_FROM}${NC}" ;;
+    current)  note="${DIM}up to date${NC}" ;;
+    offline)  note="${YELLOW}could not reach github${NC}" ;;
+    off)      note="${DIM}check skipped (--no-self-update)${NC}" ;;
+    piped)    note="${DIM}not on disk, nothing to update${NC}" ;;
+    checkout) note="${DIM}git checkout, left alone${NC}" ;;
+    *)        note="${DIM}${SELF_UPDATE_STATE}${NC}" ;;
+  esac
+  say "  ${DIM}installer${NC} ${VERSION}   ${DIM}·${NC}   ${note}"
 }
 
 confirm() { # confirm <sentence> <word>
@@ -340,6 +354,8 @@ manage_update() {
   else
     say "  ${GREEN}✓${NC} now on ${after} ${DIM}(was ${before})${NC}"
   fi
+  rule
+  installer_line
   say ""
 }
 
@@ -402,12 +418,17 @@ manage_status() {
   say "  ${CYAN}tmp${NC} $(running_version)${origin:+   ${GREEN}${origin}${NC}}"
   rule
   service_rows
+  if [ "${1:-}" != "embedded" ]; then
+    rule
+    installer_line
+    say ""
+  fi
 }
 
 # What a bare run prints when tmp is already installed here.
 menu() {
   cd "$DIR"
-  manage_status
+  manage_status embedded
   rule
   say "  update    ${DIM}pull the current image and restart onto it${NC}"
   say "  status    ${DIM}running, healthy, which version${NC}"
@@ -418,6 +439,7 @@ menu() {
   say "  uninstall ${DIM}remove tmp from this machine${NC}"
   rule
   say "  ${DIM}run${NC} $0 <command>${DIM}   ·   --help to reconfigure${NC}"
+  installer_line
   say ""
 }
 
@@ -778,6 +800,8 @@ else
   say "  ${DIM}username${NC}  ${OWNER}"
   say "  ${DIM}password as you set it${NC}"
 fi
+say ""
+installer_line
 say ""
 say "  ${DIM}update${NC}   ${DIR}/install.sh update"
 say "  ${DIM}status${NC}   ${DIR}/install.sh status"
