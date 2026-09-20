@@ -98,7 +98,11 @@ func SignIn(ctx context.Context, ext ExternalIdentity, initialConfig string, ini
 	if ext.Issuer == "" || ext.Subject == "" {
 		return nil, nil, false, errors.New(errors.CodeUnauthorized, "identity is incomplete")
 	}
-	if !ext.EmailVerified {
+	// The verified-address rule exists to stop an identity provider asserting
+	// someone else's account. A local credential is set by the operator on
+	// their own server, so there is no provider to distrust and no address to
+	// verify: "admin" is a perfectly good identity.
+	if ext.Issuer != LocalIssuer && !ext.EmailVerified {
 		return nil, nil, false, errors.New(errors.CodeUnauthorized, "a verified email address is required")
 	}
 	var (

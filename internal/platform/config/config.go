@@ -13,6 +13,10 @@ import (
 	"time"
 )
 
+// DefaultOwnerUser is who the single local account belongs to when nobody says
+// otherwise. A private instance has one person on it and no mail to send.
+const DefaultOwnerUser = "admin"
+
 // MinOwnerPasswordRunes is the shortest password accepted for the local owner
 // account. The sign-in form is public and rate limited but not otherwise
 // protected, so the password carries the whole weight.
@@ -65,11 +69,16 @@ type Config struct {
 	// SourceURL is the public repository, linked from the landing page and footer.
 	SourceURL string
 
-	// OwnerEmail and OwnerPassword provision the single local owner account on
-	// a self-hosted instance, so that signing in needs no external identity
-	// provider. OwnerPassword is authoritative at every boot: setting a new one
-	// rotates the password. Removing it leaves the stored credential alone.
-	OwnerEmail    string
+	// OwnerUser and OwnerPassword provision the single local owner account on a
+	// self-hosted instance, so that signing in needs no external identity
+	// provider. OwnerUser is a username, not necessarily an email address:
+	// "admin" is the default, because a private instance with one account has
+	// nothing to address mail to. An address still works for anyone who
+	// prefers one, and for instances created before usernames existed.
+	//
+	// OwnerPassword is authoritative at every boot: setting a new one rotates
+	// the password. Removing it leaves the stored credential alone.
+	OwnerUser     string
 	OwnerPassword string
 	// LocalAuth enables the email-and-password sign-in form. It defaults to on
 	// when OWNER_EMAIL is set, so a self-hoster never has to know about it.
@@ -156,12 +165,14 @@ func Load() (*Config, error) {
 		MetricsToken:       os.Getenv("METRICS_TOKEN"),
 		SignupsEnabled:     getEnv("SIGNUPS_ENABLED", "1") == "1" || getEnv("SIGNUPS_ENABLED", "1") == "true",
 		SourceURL:          getEnv("SOURCE_URL", "https://github.com/remarqable/tmpio"),
-		OwnerEmail:         strings.ToLower(strings.TrimSpace(os.Getenv("OWNER_EMAIL"))),
-		OwnerPassword:      os.Getenv("OWNER_PASSWORD"),
-		AutoMigrate:        truthy(getEnv("AUTO_MIGRATE", "0")),
-		TrustedProxies:     parseList(getEnv("TRUSTED_PROXIES", "127.0.0.1,::1")),
-		PublicSiteDir:      strings.TrimRight(os.Getenv("PUBLIC_SITE_DIR"), "/"),
-		PublicSiteCSP:      os.Getenv("PUBLIC_SITE_CSP"),
+		// OWNER_EMAIL is what this was called before usernames; instances
+		// configured with it keep working and keep their account.
+		OwnerUser:      strings.ToLower(strings.TrimSpace(getEnv("OWNER_USER", os.Getenv("OWNER_EMAIL")))),
+		OwnerPassword:  os.Getenv("OWNER_PASSWORD"),
+		AutoMigrate:    truthy(getEnv("AUTO_MIGRATE", "0")),
+		TrustedProxies: parseList(getEnv("TRUSTED_PROXIES", "127.0.0.1,::1")),
+		PublicSiteDir:  strings.TrimRight(os.Getenv("PUBLIC_SITE_DIR"), "/"),
+		PublicSiteCSP:  os.Getenv("PUBLIC_SITE_CSP"),
 		AI: AI{
 			APIKey:          os.Getenv("ANTHROPIC_API_KEY"),
 			WorkspaceID:     os.Getenv("AI_WORKSPACE_ID"),
@@ -197,21 +208,30 @@ func Load() (*Config, error) {
 	if cfg.IsProd() && cfg.DevLoginBypass {
 		return nil, fmt.Errorf("DEV_LOGIN_BYPASS must not be set in production")
 	}
-	cfg.LocalAuth = cfg.OwnerEmail != ""
+	// A password with nobody to attach it to means the obvious account.
+	if cfg.OwnerUser == "" && cfg.OwnerPassword != "" {
+		cfg.OwnerUser = DefaultOwnerUser
+	}
+	cfg.LocalAuth = cfg.OwnerUser != ""
 	if v := os.Getenv("LOCAL_AUTH"); v != "" {
 		cfg.LocalAuth = truthy(v)
 	}
-	if cfg.LocalAuth && cfg.OwnerEmail == "" {
-		return nil, fmt.Errorf("LOCAL_AUTH needs OWNER_EMAIL: it names the one account that can sign in with a password")
+	if cfg.LocalAuth && cfg.OwnerUser == "" {
+		cfg.OwnerUser = DefaultOwnerUser
+	}
+	if cfg.OwnerUser != "" {
+		if err := validOwnerUser(cfg.OwnerUser); err != nil {
+			return nil, err
+		}
 	}
 	if !cfg.LocalAuth && cfg.OwnerPassword != "" {
-		return nil, fmt.Errorf("OWNER_PASSWORD is set but local sign-in is off: set OWNER_EMAIL, or unset OWNER_PASSWORD")
+		return nil, fmt.Errorf("OWNER_PASSWORD is set but local sign-in is off: unset LOCAL_AUTH=0, or unset OWNER_PASSWORD")
 	}
 	if cfg.OwnerPassword != "" && len([]rune(cfg.OwnerPassword)) < MinOwnerPasswordRunes {
 		return nil, fmt.Errorf("OWNER_PASSWORD must be at least %d characters", MinOwnerPasswordRunes)
 	}
 	if cfg.IsProd() && !cfg.GoogleEnabled() && !cfg.LocalAuth {
-		return nil, fmt.Errorf("no production sign-in method: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or OWNER_EMAIL and OWNER_PASSWORD for a single local owner")
+		return nil, fmt.Errorf("no production sign-in method: set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET, or OWNER_PASSWORD for a single local owner")
 	}
 	if cfg.IsProd() {
 		if err := requireTLS("DATABASE_URL", cfg.DatabaseURL); err != nil {
@@ -225,7 +245,7 @@ func Load() (*Config, error) {
 		}
 	}
 	if !cfg.GoogleEnabled() && !cfg.LocalAuth && !cfg.DevLoginBypass {
-		return nil, fmt.Errorf("no sign-in method configured: set Google credentials, OWNER_EMAIL with OWNER_PASSWORD, or DEV_LOGIN_BYPASS=1 in development")
+		return nil, fmt.Errorf("no sign-in method configured: set Google credentials, OWNER_PASSWORD for a local owner, or DEV_LOGIN_BYPASS=1 in development")
 	}
 
 	for _, p := range cfg.TrustedProxies {
@@ -316,6 +336,24 @@ func hostIsPrivate(host string) (bool, error) {
 		}
 	}
 	return true, nil
+}
+
+// validOwnerUser accepts a plain username or an email address, and refuses
+// anything that would be confusing to type or impossible to distinguish from
+// another account.
+func validOwnerUser(u string) error {
+	if n := len([]rune(u)); n < 2 || n > 254 {
+		return fmt.Errorf("OWNER_USER must be between 2 and 254 characters")
+	}
+	for _, r := range u {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+		case r == '.' || r == '-' || r == '_' || r == '+' || r == '@':
+		default:
+			return fmt.Errorf("OWNER_USER may contain letters, digits, and . - _ + @ only; %q is not allowed", string(r))
+		}
+	}
+	return nil
 }
 
 // parseList splits a comma-separated environment value. The literal "none"

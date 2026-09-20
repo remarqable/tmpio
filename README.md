@@ -46,10 +46,11 @@ the stack:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/remarqable/tmpio/main/install.sh \
-  | sudo bash -s -- --domain tmp.example.com --email you@example.com
+  | sudo bash -s -- --domain tmp.example.com
 ```
 
-It prints the owner password when it finishes. [install.sh](install.sh) is
+It asks you to set a password for the `admin` account, or generates one and
+prints it if it cannot ask. [install.sh](install.sh) is
 about 290 lines and worth reading before you pipe it to root; it writes three
 files and hands off to `docker compose`, and it does not phone home.
 
@@ -60,7 +61,7 @@ one `.env`; the server sets up its own database role, schema and owner account:
 mkdir tmp && cd tmp
 curl -O https://raw.githubusercontent.com/remarqable/tmpio/main/docker-compose.yml
 curl -o .env https://raw.githubusercontent.com/remarqable/tmpio/main/config/docker.env.example
-$EDITOR .env      # APP_ORIGIN, SESSION_SECRET, the two database passwords, OWNER_EMAIL, OWNER_PASSWORD
+$EDITOR .env      # APP_ORIGIN, SESSION_SECRET, the two database passwords, OWNER_PASSWORD
 docker compose up -d
 ```
 

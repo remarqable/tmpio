@@ -12,8 +12,8 @@
       <input type="hidden" name="return" value="{{.Return}}">
       {{if .OAuthRequest}}<input type="hidden" name="oauth" value="{{.OAuthRequest}}">{{end}}
       <div class="auth-field">
-        <label for="local-email">{{t "landing.local_email"}}</label>
-        <input class="auth-input" id="local-email" name="email" type="email" required autocomplete="username" autofocus>
+        <label for="local-user">{{t "landing.local_user"}}</label>
+        <input class="auth-input" id="local-user" name="username" type="text" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false" autofocus>
       </div>
       <div class="auth-field">
         <label for="local-password">{{t "landing.local_password"}}</label>

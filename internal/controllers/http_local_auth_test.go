@@ -53,13 +53,13 @@ func TestLocalOwnerSignIn(t *testing.T) {
 
 	// A wrong password is refused, says nothing about which half was wrong,
 	// and leaves no session behind.
-	status, loc := postForm(anon, "/auth/local", url.Values{"email": {"owner@x.test"}, "password": {"wrong"}}, h.origin)
+	status, loc := postForm(anon, "/auth/local", url.Values{"username": {"owner@x.test"}, "password": {"wrong"}}, h.origin)
 	require.Equal(t, 303, status)
 	require.Equal(t, "/login?failed=1", loc)
 	require.False(t, hasSessionCookie(anon))
 
 	// An address with no credential is refused exactly the same way.
-	status, loc = postForm(anon, "/auth/local", url.Values{"email": {"stranger@x.test"}, "password": {ownerPassword}}, h.origin)
+	status, loc = postForm(anon, "/auth/local", url.Values{"username": {"stranger@x.test"}, "password": {ownerPassword}}, h.origin)
 	require.Equal(t, 303, status)
 	require.Equal(t, "/login?failed=1", loc)
 	require.False(t, hasSessionCookie(anon))
@@ -71,7 +71,7 @@ func TestLocalOwnerSignIn(t *testing.T) {
 	require.NotContains(t, body, "owner@x.test")
 
 	// The right password signs the owner in, and the address is not case bound.
-	status, loc = postForm(anon, "/auth/local", url.Values{"email": {"Owner@X.test"}, "password": {ownerPassword}}, h.origin)
+	status, loc = postForm(anon, "/auth/local", url.Values{"username": {"Owner@X.test"}, "password": {ownerPassword}}, h.origin)
 	require.Equal(t, 302, status)
 	require.Equal(t, "/", loc)
 	require.True(t, hasSessionCookie(anon))
@@ -82,12 +82,12 @@ func TestLocalOwnerSignIn(t *testing.T) {
 	require.Regexp(t, `o:[A-Z0-9]{8}`, body)
 
 	// Cross-origin submissions are refused.
-	status, _ = postForm(h.anon(), "/auth/local", url.Values{"email": {"owner@x.test"}, "password": {ownerPassword}}, "https://evil.example")
+	status, _ = postForm(h.anon(), "/auth/local", url.Values{"username": {"owner@x.test"}, "password": {ownerPassword}}, "https://evil.example")
 	require.Equal(t, 403, status)
 
 	// With local sign-in off the route does not exist.
 	h.cfg.LocalAuth = false
-	status, _ = postForm(h.anon(), "/auth/local", url.Values{"email": {"owner@x.test"}, "password": {ownerPassword}}, h.origin)
+	status, _ = postForm(h.anon(), "/auth/local", url.Values{"username": {"owner@x.test"}, "password": {ownerPassword}}, h.origin)
 	require.Equal(t, 404, status)
 	res = h.anon().do("GET", "/login", nil, nil)
 	require.NotContains(t, readAll(res), `action="/auth/local"`)
@@ -103,15 +103,15 @@ func TestLocalOwnerPasswordRotation(t *testing.T) {
 	require.False(t, provisionOwner(t, "owner@x.test", rotated))
 
 	anon := h.anon()
-	status, _ := postForm(anon, "/auth/local", url.Values{"email": {"owner@x.test"}, "password": {ownerPassword}}, h.origin)
+	status, _ := postForm(anon, "/auth/local", url.Values{"username": {"owner@x.test"}, "password": {ownerPassword}}, h.origin)
 	require.Equal(t, 303, status, "the old password should no longer work")
-	status, _ = postForm(anon, "/auth/local", url.Values{"email": {"owner@x.test"}, "password": {rotated}}, h.origin)
+	status, _ = postForm(anon, "/auth/local", url.Values{"username": {"owner@x.test"}, "password": {rotated}}, h.origin)
 	require.Equal(t, 302, status, "the new password should work")
 
 	// An empty password leaves the stored credential alone, so an operator can
 	// drop OWNER_PASSWORD from the environment once the account exists.
 	require.False(t, provisionOwner(t, "owner@x.test", ""))
-	status, _ = postForm(h.anon(), "/auth/local", url.Values{"email": {"owner@x.test"}, "password": {rotated}}, h.origin)
+	status, _ = postForm(h.anon(), "/auth/local", url.Values{"username": {"owner@x.test"}, "password": {rotated}}, h.origin)
 	require.Equal(t, 302, status)
 
 	// The account keeps one organization across all of that.
@@ -122,14 +122,21 @@ func TestLocalOwnerPasswordRotation(t *testing.T) {
 
 func TestLocalOwnerRefusesIncompleteConfiguration(t *testing.T) {
 	newHarness(t)
+	// No username at all.
 	_, err := models.EnsureLocalOwner(t.Context(), "", ownerPassword, models.DefaultSiteConfigYAML, models.DefaultIndexMarkdown)
 	require.Error(t, err)
-	_, err = models.EnsureLocalOwner(t.Context(), "not-an-address", ownerPassword, models.DefaultSiteConfigYAML, models.DefaultIndexMarkdown)
-	require.Error(t, err)
+
 	// A new account with no password cannot be created.
-	_, err = models.EnsureLocalOwner(t.Context(), "owner@x.test", "", models.DefaultSiteConfigYAML, models.DefaultIndexMarkdown)
+	_, err = models.EnsureLocalOwner(t.Context(), "admin", "", models.DefaultSiteConfigYAML, models.DefaultIndexMarkdown)
 	require.Error(t, err)
 	require.Contains(t, strings.ToLower(err.Error()), "owner_password")
+
+	// A name that is not an address is a username, not a mistake. This is the
+	// rule that changed: the account is "admin" on a private instance, and
+	// there is no address to verify because this server issued the credential.
+	created, err := models.EnsureLocalOwner(t.Context(), "not-an-address", ownerPassword, models.DefaultSiteConfigYAML, models.DefaultIndexMarkdown)
+	require.NoError(t, err)
+	require.True(t, created)
 }
 
 // TestForwardedForCannotForgeLoopback is the concrete attack the trusted-proxy
@@ -167,4 +174,42 @@ func TestForwardedForCannotForgeLoopback(t *testing.T) {
 	// Trusting nobody ignores the header even from loopback.
 	h.deps.Cfg.TrustedProxies = nil
 	require.Equal(t, http.StatusOK, probe("127.0.0.1:5000", "203.0.113.9"))
+}
+
+// TestAdminIsTheDefaultAccount covers the shape a fresh self-install gets: a
+// username rather than an address, which the verified-email rule used to
+// forbid because it exists to distrust identity providers, not this server.
+func TestAdminIsTheDefaultAccount(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.LocalAuth = true
+	h.cfg.SignupsEnabled = false
+
+	require.True(t, provisionOwner(t, "admin", ownerPassword))
+
+	anon := h.anon()
+	status, loc := postForm(anon, "/auth/local", url.Values{"username": {"admin"}, "password": {ownerPassword}}, h.origin)
+	require.Equal(t, 302, status)
+	require.Equal(t, "/", loc)
+	require.True(t, hasSessionCookie(anon))
+
+	res := anon.do("GET", "/admin", nil, nil)
+	require.Equal(t, 200, res.StatusCode, "admin should reach their own site")
+	res.Body.Close()
+
+	// Wrong password for a real username is refused like anything else.
+	status, _ = postForm(h.anon(), "/auth/local", url.Values{"username": {"admin"}, "password": {"wrong"}}, h.origin)
+	require.Equal(t, 303, status)
+}
+
+// The form field was called email before usernames existed. A page cached in
+// someone's browser must still be able to sign in.
+func TestLegacyEmailFieldStillAccepted(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.LocalAuth = true
+	require.True(t, provisionOwner(t, "admin", ownerPassword))
+
+	anon := h.anon()
+	status, _ := postForm(anon, "/auth/local", url.Values{"email": {"admin"}, "password": {ownerPassword}}, h.origin)
+	require.Equal(t, 302, status)
+	require.True(t, hasSessionCookie(anon))
 }

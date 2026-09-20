@@ -21,7 +21,7 @@ DIR="/opt/tmp"
 TAG="1"
 PORT="8000"
 DOMAIN=""
-EMAIL=""
+OWNER="admin"
 PASSWORD=""
 WITH_CADDY=1
 WITH_FIREWALL=1
@@ -39,8 +39,10 @@ usage() {
 tmp installer ${VERSION}
 
   --domain <host>     the public name this instance answers on (required)
-  --email <address>   the owner account to create (required)
-  --password <pass>   owner password (default: generated and printed)
+  --user <name>       the account to create (default: ${OWNER}); an email
+                      address works too if you prefer one
+  --password <pass>   the password for it. Omitted, you are asked for one, or
+                      one is generated and printed when nobody can be asked
   --dir <path>        install directory (default: ${DIR})
   --tag <tag>         image tag to run (default: ${TAG})
   --port <port>       loopback port to publish on (default: ${PORT}); change it
@@ -62,7 +64,7 @@ compose_file() {
 #
 #   curl -O https://raw.githubusercontent.com/remarqable/tmpio/main/docker-compose.yml
 #   curl -o .env https://raw.githubusercontent.com/remarqable/tmpio/main/config/docker.env.example
-#   $EDITOR .env          # at minimum: APP_ORIGIN, SESSION_SECRET, OWNER_EMAIL, OWNER_PASSWORD
+#   $EDITOR .env          # at minimum: APP_ORIGIN, SESSION_SECRET, OWNER_PASSWORD
 #   docker compose up -d
 #
 # Updating is `docker compose pull && docker compose up -d`. The server applies
@@ -123,7 +125,8 @@ COMPOSE
 while [ $# -gt 0 ]; do
   case "$1" in
     --domain)        DOMAIN="${2:-}"; shift 2 ;;
-    --email)         EMAIL="${2:-}"; shift 2 ;;
+    --user)          OWNER="${2:-}"; shift 2 ;;
+    --email)         OWNER="${2:-}"; shift 2 ;;   # what --user was called before
     --password)      PASSWORD="${2:-}"; shift 2 ;;
     --dir)           DIR="${2:-}"; shift 2 ;;
     --tag)           TAG="${2:-}"; shift 2 ;;
@@ -146,9 +149,8 @@ ENV_FILE="${DIR}/.env"
 # An existing install already knows its domain and owner; only a new one has to ask.
 if [ "$EXISTING" -eq 0 ]; then
   [ -n "$DOMAIN" ] || die "--domain is required (the public name this instance answers on)"
-  [ -n "$EMAIL" ]  || die "--email is required (the owner account to create)"
+  [ -n "$OWNER" ]  || die "--user cannot be empty"
   case "$DOMAIN" in *.*) ;; *) die "--domain should be a hostname such as tmp.example.com" ;; esac
-  case "$EMAIL" in *@*.*) ;; *) die "--email should be an email address" ;; esac
 fi
 
 if [ "$DRY_RUN" -eq 1 ]; then
@@ -200,8 +202,32 @@ note "created ${DIR}/web for your own front page; empty means the built-in sign-
 if [ "$EXISTING" -eq 1 ]; then
   note "kept ${ENV_FILE} and the secrets in it"
   DOMAIN="${DOMAIN:-$(sed -n 's|^APP_ORIGIN=https\{0,1\}://||p' "$ENV_FILE" | head -1)}"
+  OWNER="$(sed -n 's|^OWNER_USER=||p;s|^OWNER_EMAIL=||p' "$ENV_FILE" | head -1)"
   PASSWORD=""
 else
+  # Ask for the password if there is a terminal to ask at. Piping this script
+  # to bash leaves stdin holding the script, so the question goes to /dev/tty.
+  if [ -z "$PASSWORD" ] && [ -r /dev/tty ]; then
+    while : ; do
+      printf '\n%sSet the password for %s%s\n' "$BOLD" "$OWNER" "$NC" > /dev/tty
+      stty -echo < /dev/tty 2>/dev/null || true
+      printf '  password (at least 12 characters, or blank to generate one): ' > /dev/tty
+      read -r PASSWORD < /dev/tty || true
+      printf '\n' > /dev/tty
+      if [ -z "$PASSWORD" ]; then stty echo < /dev/tty 2>/dev/null || true; break; fi
+      printf '  again: ' > /dev/tty
+      read -r CONFIRM < /dev/tty || true
+      stty echo < /dev/tty 2>/dev/null || true
+      printf '\n' > /dev/tty
+      if [ "$PASSWORD" != "$CONFIRM" ]; then
+        printf '  %sthey do not match%s\n' "$RED" "$NC" > /dev/tty; PASSWORD=""; continue
+      fi
+      if [ "${#PASSWORD}" -lt 12 ]; then
+        printf '  %sat least 12 characters%s\n' "$RED" "$NC" > /dev/tty; PASSWORD=""; continue
+      fi
+      break
+    done
+  fi
   [ -n "$PASSWORD" ] || { PASSWORD="$(openssl rand -base64 18 | tr -d '/+=' | cut -c1-20)"; GENERATED=1; }
   umask 077
   cat > "$ENV_FILE" <<EOF
@@ -218,10 +244,9 @@ SESSION_SECRET=$(openssl rand -hex 32)
 POSTGRES_PASSWORD=$(openssl rand -hex 32)
 APP_USER_PASSWORD=$(openssl rand -hex 32)
 
-# The owner account. Set a new password here and restart to rotate it; that is
-# also how a forgotten password is recovered. OWNER_EMAIL must stay, because it
-# is what keeps the password sign-in form on.
-OWNER_EMAIL=${EMAIL}
+# The account you sign in with. Set a new password here and restart to rotate
+# it; that is also how a forgotten password is recovered.
+OWNER_USER=${OWNER}
 OWNER_PASSWORD=${PASSWORD}
 
 # Nobody but the owner can create an account on a self-hosted instance anyway.
@@ -300,7 +325,7 @@ say ""
 say "  ${BOLD}https://${DOMAIN}${NC}"
 say ""
 if [ "${GENERATED:-0}" -eq 1 ]; then
-  say "  owner     ${EMAIL}"
+  say "  username  ${OWNER}"
   say "  password  ${BOLD}${PASSWORD}${NC}"
   say ""
   say "  ${DIM}That password is stored in ${ENV_FILE}. Change it by editing${NC}"
@@ -308,8 +333,8 @@ if [ "${GENERATED:-0}" -eq 1 ]; then
 elif [ "$EXISTING" -eq 1 ]; then
   say "  ${DIM}Existing install updated. Sign-in details are unchanged.${NC}"
 else
-  say "  owner     ${EMAIL}"
-  say "  ${DIM}password as supplied on the command line${NC}"
+  say "  username  ${OWNER}"
+  say "  ${DIM}password as you set it${NC}"
 fi
 say ""
 say "  ${DIM}update   cd ${DIR} && docker compose pull && docker compose up -d${NC}"

@@ -14,6 +14,7 @@
   --fg: #ededef;
   --fg-2: #a0a0a8;
   --fg-3: #6b6b74;
+  --acc: #7cc4ff;
   --danger: #f0736a;
   --danger-bg: rgba(240, 115, 106, 0.08);
   --radius: 12px;
@@ -56,7 +57,7 @@ body {
   color: var(--fg);
   text-decoration: none;
 }
-.auth-mark span { color: var(--fg-3); }
+.auth-mark span { color: var(--acc); }
 .auth-tagline { margin: 6px 0 0; font-size: 13px; color: var(--fg-3); }
 
 /* The card */

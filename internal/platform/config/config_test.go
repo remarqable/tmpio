@@ -58,6 +58,7 @@ func TestLocalOwnerConfiguration(t *testing.T) {
 		t.Setenv("DATABASE_OWNER_URL", "")
 		t.Setenv("GOOGLE_CLIENT_ID", "")
 		t.Setenv("GOOGLE_CLIENT_SECRET", "")
+		t.Setenv("OWNER_USER", "")
 		t.Setenv("OWNER_EMAIL", "")
 		t.Setenv("OWNER_PASSWORD", "")
 		t.Setenv("LOCAL_AUTH", "")
@@ -72,7 +73,7 @@ func TestLocalOwnerConfiguration(t *testing.T) {
 
 	t.Run("an owner account is enough for production", func(t *testing.T) {
 		base(t)
-		t.Setenv("OWNER_EMAIL", "Owner@Example.com")
+		t.Setenv("OWNER_USER", "Owner@Example.com")
 		t.Setenv("OWNER_PASSWORD", "correct horse battery")
 		cfg, err := Load()
 		if err != nil {
@@ -81,27 +82,53 @@ func TestLocalOwnerConfiguration(t *testing.T) {
 		if !cfg.LocalAuth {
 			t.Fatal("OWNER_EMAIL should turn local sign-in on")
 		}
-		if cfg.OwnerEmail != "owner@example.com" {
-			t.Fatalf("the owner address should be lowercased, got %q", cfg.OwnerEmail)
+		if cfg.OwnerUser != "owner@example.com" {
+			t.Fatalf("the owner name should be lowercased, got %q", cfg.OwnerUser)
 		}
 	})
 
 	t.Run("a short password is refused", func(t *testing.T) {
 		base(t)
-		t.Setenv("OWNER_EMAIL", "owner@example.com")
+		t.Setenv("OWNER_USER", "owner@example.com")
 		t.Setenv("OWNER_PASSWORD", "short")
 		if _, err := Load(); err == nil || !strings.Contains(err.Error(), "OWNER_PASSWORD must be at least") {
 			t.Fatalf("expected a length refusal, got %v", err)
 		}
 	})
 
-	t.Run("a password with local sign-in off is refused", func(t *testing.T) {
+	t.Run("a password alone means the default account", func(t *testing.T) {
 		base(t)
-		t.Setenv("GOOGLE_CLIENT_ID", "id")
-		t.Setenv("GOOGLE_CLIENT_SECRET", "secret")
 		t.Setenv("OWNER_PASSWORD", "correct horse battery")
-		if _, err := Load(); err == nil || !strings.Contains(err.Error(), "local sign-in is off") {
-			t.Fatalf("expected OWNER_PASSWORD without OWNER_EMAIL to be refused, got %v", err)
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("expected the config to load, got %v", err)
+		}
+		if cfg.OwnerUser != DefaultOwnerUser {
+			t.Fatalf("a password with no username should provision %q, got %q", DefaultOwnerUser, cfg.OwnerUser)
+		}
+	})
+
+	t.Run("OWNER_EMAIL still names the account", func(t *testing.T) {
+		base(t)
+		// Instances created before usernames keep their account rather than
+		// silently gaining a second one called admin.
+		t.Setenv("OWNER_EMAIL", "dev@example.com")
+		t.Setenv("OWNER_PASSWORD", "correct horse battery")
+		cfg, err := Load()
+		if err != nil {
+			t.Fatalf("expected the config to load, got %v", err)
+		}
+		if cfg.OwnerUser != "dev@example.com" {
+			t.Fatalf("OWNER_EMAIL must still win, got %q", cfg.OwnerUser)
+		}
+	})
+
+	t.Run("a username with a space is refused", func(t *testing.T) {
+		base(t)
+		t.Setenv("OWNER_USER", "the admin")
+		t.Setenv("OWNER_PASSWORD", "correct horse battery")
+		if _, err := Load(); err == nil || !strings.Contains(err.Error(), "not allowed") {
+			t.Fatalf("expected a character refusal, got %v", err)
 		}
 	})
 
@@ -109,7 +136,7 @@ func TestLocalOwnerConfiguration(t *testing.T) {
 		base(t)
 		t.Setenv("GOOGLE_CLIENT_ID", "id")
 		t.Setenv("GOOGLE_CLIENT_SECRET", "secret")
-		t.Setenv("OWNER_EMAIL", "owner@example.com")
+		t.Setenv("OWNER_USER", "owner@example.com")
 		t.Setenv("LOCAL_AUTH", "0")
 		cfg, err := Load()
 		if err != nil {
@@ -122,7 +149,7 @@ func TestLocalOwnerConfiguration(t *testing.T) {
 
 	t.Run("auto migrate is off unless asked for", func(t *testing.T) {
 		base(t)
-		t.Setenv("OWNER_EMAIL", "owner@example.com")
+		t.Setenv("OWNER_USER", "owner@example.com")
 		t.Setenv("OWNER_PASSWORD", "correct horse battery")
 		cfg, err := Load()
 		if err != nil {

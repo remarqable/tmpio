@@ -34,10 +34,12 @@ const (
 	argonSaltLen = 16
 )
 
-// LocalCredential is the password for one local account.
+// LocalCredential is the password for one local account. Username is whatever
+// the owner signs in with: "admin" by default, an email address if they set
+// one.
 type LocalCredential struct {
 	UserID       int64 `gorm:"primaryKey"`
-	Email        string
+	Username     string
 	PasswordHash string
 	CreatedAt    time.Time `gorm:"autoCreateTime"`
 	UpdatedAt    time.Time `gorm:"autoUpdateTime"`
@@ -100,13 +102,13 @@ var dummyHash, _ = HashPassword("this password is never correct")
 // drop OWNER_PASSWORD from the environment once the account exists.
 //
 // It returns whether the account was created.
-func EnsureLocalOwner(ctx context.Context, email, password, initialConfig, initialIndex string) (bool, error) {
-	email = strings.ToLower(strings.TrimSpace(email))
-	if email == "" || !strings.Contains(email, "@") {
-		return false, errors.New(errors.CodeValidationFailed, "OWNER_EMAIL must be an email address")
+func EnsureLocalOwner(ctx context.Context, username, password, initialConfig, initialIndex string) (bool, error) {
+	username = strings.ToLower(strings.TrimSpace(username))
+	if username == "" {
+		return false, errors.New(errors.CodeValidationFailed, "a username is required for the local owner account")
 	}
 	var existing LocalCredential
-	err := db.Get().WithContext(ctx).Where("email = ?", email).First(&existing).Error
+	err := db.Get().WithContext(ctx).Where("username = ?", username).First(&existing).Error
 	switch {
 	case err == nil:
 		if password == "" {
@@ -125,7 +127,7 @@ func EnsureLocalOwner(ctx context.Context, email, password, initialConfig, initi
 		return false, err
 	}
 	if password == "" {
-		return false, errors.New(errors.CodeValidationFailed, "OWNER_PASSWORD is required to create the owner account "+email)
+		return false, errors.New(errors.CodeValidationFailed, "OWNER_PASSWORD is required to create the owner account "+username)
 	}
 	hash, err := HashPassword(password)
 	if err != nil {
@@ -133,27 +135,30 @@ func EnsureLocalOwner(ctx context.Context, email, password, initialConfig, initi
 	}
 	// allowCreate is true even when sign-ups are closed: this is the operator
 	// provisioning their own instance, not a stranger signing up.
-	user, _, _, err := SignIn(ctx, ExternalIdentity{
-		Issuer: LocalIssuer, Subject: email, Email: email, EmailVerified: true,
-	}, initialConfig, initialIndex, true)
+	ident := ExternalIdentity{Issuer: LocalIssuer, Subject: username, Name: username}
+	// Only claim an address when one was actually given.
+	if strings.Contains(username, "@") {
+		ident.Email, ident.EmailVerified = username, true
+	}
+	user, _, _, err := SignIn(ctx, ident, initialConfig, initialIndex, true)
 	if err != nil {
 		return false, err
 	}
-	cred := &LocalCredential{UserID: user.ID, Email: email, PasswordHash: hash}
+	cred := &LocalCredential{UserID: user.ID, Username: username, PasswordHash: hash}
 	if err := db.Get().WithContext(ctx).Create(cred).Error; err != nil {
 		return false, err
 	}
 	return true, nil
 }
 
-// AuthenticateLocal verifies an email and password against the local
-// credential. Every failure is the same error, and a missing address costs the
-// same work as a wrong password.
-func AuthenticateLocal(ctx context.Context, email, password string) (*User, error) {
-	email = strings.ToLower(strings.TrimSpace(email))
-	bad := errors.New(errors.CodeUnauthorized, "that email address and password do not match")
+// AuthenticateLocal verifies a username and password against the local
+// credential. Every failure is the same error, and an unknown username costs
+// the same work as a wrong password.
+func AuthenticateLocal(ctx context.Context, username, password string) (*User, error) {
+	username = strings.ToLower(strings.TrimSpace(username))
+	bad := errors.New(errors.CodeUnauthorized, "that username and password do not match")
 	var cred LocalCredential
-	err := db.Get().WithContext(ctx).Where("email = ?", email).First(&cred).Error
+	err := db.Get().WithContext(ctx).Where("username = ?", username).First(&cred).Error
 	if err != nil {
 		if goerrors.Is(err, gorm.ErrRecordNotFound) {
 			VerifyPassword(dummyHash, password)

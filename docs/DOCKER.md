@@ -23,8 +23,8 @@ them:
 | `POSTGRES_PASSWORD` | `openssl rand -hex 32`. The database owner, used for migrations and backups. |
 | `APP_USER_PASSWORD` | `openssl rand -hex 32`. The role the server runs as, which cannot bypass row-level security. |
 
-Then set `OWNER_EMAIL` and `OWNER_PASSWORD` to the account you will sign in
-with, and:
+Then set `OWNER_PASSWORD` to the password you will sign in with — the account
+is `admin` unless you set `OWNER_USER` to something else — and:
 
 ```bash
 docker compose up -d
@@ -56,7 +56,7 @@ The short version, which does everything below for you:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/remarqable/tmpio/main/install.sh \
-  | sudo bash -s -- --domain tmp.example.com --email you@example.com
+  | sudo bash -s -- --domain tmp.example.com
 ```
 
 `install.sh` installs Docker and Caddy, writes `/opt/tmp/docker-compose.yml`,
@@ -100,7 +100,7 @@ curl -o .env https://raw.githubusercontent.com/remarqable/tmpio/main/config/dock
 printf 'SESSION_SECRET=%s\n'    "$(openssl rand -hex 32)" >> .env
 printf 'POSTGRES_PASSWORD=%s\n' "$(openssl rand -hex 32)" >> .env
 printf 'APP_USER_PASSWORD=%s\n' "$(openssl rand -hex 32)" >> .env
-# then edit .env and set APP_ORIGIN, OWNER_EMAIL and OWNER_PASSWORD,
+# then edit .env and set APP_ORIGIN and OWNER_PASSWORD (the account is admin),
 # deleting the empty placeholders the example file ships with.
 $EDITOR .env
 
@@ -118,8 +118,8 @@ docker compose logs -f app
 ```
 
 The logs should reach `tmp listening` within a few seconds of the database
-becoming healthy. Open `https://your-domain` and sign in with `OWNER_EMAIL`
-and `OWNER_PASSWORD`.
+becoming healthy. Open `https://your-domain` and sign in as `admin` with the
+password you set.
 
 ### Firewall
 
@@ -170,7 +170,7 @@ Open `APP_ORIGIN`, sign in with the address and password from `.env`, and the
 site is there with its starting pages.
 
 Once the account exists you can remove `OWNER_PASSWORD` from `.env`. Keep
-`OWNER_EMAIL`: it is what keeps the password form on. Setting a new
+`OWNER_USER`: it is what keeps the password form on. Setting a new
 `OWNER_PASSWORD` and restarting rotates the password, which is also how you
 recover from forgetting it.
 
@@ -298,7 +298,7 @@ In order, and only with `AUTO_MIGRATE=1`, which the compose file sets:
 2. Takes a PostgreSQL advisory lock, applies every pending migration as the
    owner role, and releases it. Two instances starting together cannot race;
    the second waits and finds nothing to do.
-3. Creates the owner account from `OWNER_EMAIL` and `OWNER_PASSWORD`, or
+3. Creates the owner account from `OWNER_USER` and `OWNER_PASSWORD`, or
    rotates the password if one is set and different.
 4. Drops the owner connection and serves everything else as the restricted
    role.

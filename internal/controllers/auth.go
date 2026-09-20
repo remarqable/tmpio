@@ -133,7 +133,11 @@ func (d *Deps) LocalLogin(c *gin.Context) {
 		return
 	}
 	ret := safeReturnPath(c.PostForm("return"))
-	user, err := models.AuthenticateLocal(c.Request.Context(), c.PostForm("email"), c.PostForm("password"))
+	username := c.PostForm("username")
+	if username == "" {
+		username = c.PostForm("email") // the field was called email before usernames
+	}
+	user, err := models.AuthenticateLocal(c.Request.Context(), username, c.PostForm("password"))
 	if err != nil {
 		if errors.As(err).HTTPStatus() >= 500 {
 			d.fail(c, err)
