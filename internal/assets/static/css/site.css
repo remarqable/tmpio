@@ -79,6 +79,16 @@
   --tmp-z-sidebar: 60;
 }
 
+/* The sidebar takes the main column's slack rather than the article's measure.
+   The article is capped at --tmp-measure and left-aligned, so past about
+   1200px there is empty space to the right of the text doing nothing, and a
+   page title like "Austin Pivot: Office + Apartment Strategy" can have some
+   of it. Below that the content column is already the tight one, so the rail
+   stays narrow. Both grids read this token, so the search box stays aligned
+   over the content without a second rule. */
+@media (min-width: 1280px) { :root { --tmp-sidebar-w: 300px; } }
+@media (min-width: 1360px) { :root { --tmp-sidebar-w: 320px; } }
+
 /* docs theme — compact, dense navigation (mostly the defaults above) */
 html[data-theme="docs"] {
   --tmp-font-size: 15px;
@@ -447,6 +457,9 @@ body.tmp-site {
 .tmp-sidebar {
   position: sticky;
   top: var(--tmp-header-h);
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - var(--tmp-header-h));
   max-height: calc(100vh - var(--tmp-header-h));
   overflow-y: auto;
   padding: 1.25rem 0.5rem 2rem 0;
@@ -1258,13 +1271,16 @@ textarea.tmp-editor-area { resize: none; }
 /* The build this instance is running. Quiet by design: it only matters when
    someone is asking whether a deploy actually landed. */
 .tmp-build {
-  margin: 0.75rem 0 0;
-  padding: 0.5rem 0.5rem 0;
-  border-top: 1px solid var(--tmp-border);
+  /* auto pushes it to the foot of the rail rather than leaving it hanging
+     under the last tool. When the tree is long enough to scroll, the margin
+     collapses to nothing and it simply follows the content. */
+  margin: auto 0 0;
+  padding: 1rem 0.5rem 0;
   font-family: var(--tmp-font-mono);
   font-size: 0.6875rem;
+  font-weight: 400;
   color: var(--tmp-fg-muted);
-  opacity: 0.7;
+  opacity: 0.65;
   letter-spacing: 0.01em;
   overflow-wrap: anywhere;
 }
