@@ -86,7 +86,7 @@ func main() {
 	// usable the moment it boots, with no external identity provider.
 	if cfg.LocalAuth {
 		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		created, err := models.EnsureLocalOwner(ctx, cfg.OwnerUser, cfg.OwnerPassword, models.DefaultSiteConfigYAML, models.DefaultIndexMarkdown)
+		created, err := models.EnsureLocalOwner(ctx, cfg.OwnerUser, cfg.OwnerPassword, models.DefaultSiteConfigYAML, models.WelcomeMarkdown(cfg.AppOrigin))
 		cancel()
 		if err != nil {
 			log.Fatal().Err(err).Msg("owner account")

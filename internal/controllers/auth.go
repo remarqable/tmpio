@@ -170,7 +170,7 @@ func (d *Deps) LocalLogin(c *gin.Context) {
 
 func (d *Deps) finishSignIn(c *gin.Context, ident models.ExternalIdentity, returnPath string, oauthReq []byte) {
 	ctx := c.Request.Context()
-	user, _, created, err := models.SignIn(ctx, ident, models.DefaultSiteConfigYAML, models.DefaultIndexMarkdown, d.Cfg.SignupsEnabled)
+	user, _, created, err := models.SignIn(ctx, ident, models.DefaultSiteConfigYAML, models.WelcomeMarkdown(d.Cfg.AppOrigin), d.Cfg.SignupsEnabled)
 	if err != nil {
 		if errors.Is(err, errors.CodeSignupsClosed) {
 			obs.From(ctx).Info().Str("event", "auth.signup_refused").Msg("")

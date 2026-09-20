@@ -44,22 +44,58 @@ features:
   toc: true
 `
 
-// DefaultIndexMarkdown is the first page of a new site.
-const DefaultIndexMarkdown = `---
+// WelcomeMarkdown is the first page of a new site. It is three steps, because
+// the useful thing to do with an empty site is connect something to it and
+// write to it, and everything else can be discovered later. It names this
+// instance's own MCP address, since a generic one would have to be looked up.
+func WelcomeMarkdown(origin string) string {
+	mcp := strings.TrimRight(origin, "/") + "/mcp"
+	if origin == "" {
+		mcp = "https://your-instance/mcp"
+	}
+	const fence = "```"
+	return `---
 title: Welcome
-description: Your private knowledge site
+description: Start here
 ---
 
 # Welcome
 
-This is your site. Nobody but you can see it until you create a sharing link for a document.
+Only you can see this site, until you make a sharing link for a page.
 
-:::callout type="tip"
-Connect your AI from the dashboard, then ask it to create a page, for example ` + "`/research/circle.md`" + `. Read any existing page before changing it.
-:::
+## 1. Connect your AI
 
-Edit this page from **Content** in the dashboard, or ask your connected AI to replace it.
+Add this address to Claude, ChatGPT, or whatever you use:
+
+` + fence + `
+` + mcp + `
+` + fence + `
+
+[Connections](/admin/connections) has the steps for each client, and shows
+everything that has connected.
+
+## 2. Ask it for something worth keeping
+
+Anything whose answer you would otherwise lose in a chat log. For example:
+
+` + fence + `
+Research the realistic options for a decision I am making: <the decision>.
+For each option give me what it costs, where it breaks down, and who it
+suits. Then tell me which one you would pick, and what would change your
+mind.
+` + fence + `
+
+## 3. Say "save it to tmp"
+
+Your AI writes the page and tells you where it put it. Come back here and it
+will be waiting. Every change after that is kept as a revision, so nothing is
+overwritten by accident.
 `
+}
+
+// DefaultIndexMarkdown is the welcome page for a caller that does not know the
+// instance's address. Tests use it; a running server always knows its origin.
+var DefaultIndexMarkdown = WelcomeMarkdown("")
 
 // DefaultSiteConfig returns the parsed default.
 func DefaultSiteConfig() *SiteConfig {
