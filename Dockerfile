@@ -10,9 +10,12 @@ RUN go mod download
 
 COPY . .
 ARG VERSION=dev
+ARG BUILD_DATE
 RUN CGO_ENABLED=0 GOOS=linux go build \
       -trimpath \
-      -ldflags="-s -w -X main.version=${VERSION}" \
+      -ldflags="-s -w \
+        -X github.com/remarqable/tmpio/internal/version.Version=${VERSION} \
+        -X github.com/remarqable/tmpio/internal/version.Date=${BUILD_DATE}" \
       -o /out/tmpio ./cmd/api
 
 FROM gcr.io/distroless/static-debian12:nonroot

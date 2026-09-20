@@ -46,6 +46,7 @@
   <aside id="tmp-sidebar" class="tmp-sidebar" aria-label="{{t "admin.title"}}">
     <nav><ul class="tmp-tree tmp-adminnav">{{range .Site.AdminNav}}<li><a href="{{.URL}}" {{if .Active}}aria-current="page"{{end}}>{{template "icon" .Icon}} {{.Title}}</a></li>{{end}}</ul></nav>
     <div class="tmp-tools"><a class="tmp-tool" href="/">{{template "icon" "back"}} {{t "admin.back"}}</a></div>
+    <p class="tmp-build" title="{{t "site.build"}}">{{.Build}}</p>
   </aside>
   {{else if and (not .Site.Shared) (or .Site.Config.Sidebar.Auto .Site.IsOwner)}}
   <aside id="tmp-sidebar" class="tmp-sidebar" aria-label="{{t "site.contents"}}">
@@ -59,6 +60,7 @@
     {{end}}
     <nav>{{template "partials/_tree.html" (dict "Nodes" .Site.Sidebar "Current" .Site.CurrentHTML)}}</nav>
     {{if .Site.IsOwner}}<div class="tmp-tools tmp-tools-bottom"><a class="tmp-tool" href="/trash" {{if eq .Site.CurrentHTML "/trash"}}aria-current="page"{{end}}>{{template "icon" "trash"}} {{t "nav.trash"}}</a><a class="tmp-tool" href="/format">{{template "icon" "info"}} {{t "editor.format_help"}}</a></div>{{end}}
+    <p class="tmp-build" title="{{t "site.build"}}">{{.Build}}</p>
   </aside>
   {{end}}
   <main id="tmp-main" class="tmp-main">

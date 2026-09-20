@@ -46,7 +46,7 @@ else
 fi
 set -a; . ./data/prod-secrets.env; set +a
 echo "2. migrations"; goose -dir migrations postgres "$DATABASE_OWNER_URL" up
-echo "3. build + upload"; CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w" -o bin/api-linux-amd64 ./cmd/api
+echo "3. build + upload"; CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w -X github.com/remarqable/tmpio/internal/version.Version=$(git describe --tags --always --dirty 2>/dev/null || echo dev) -X github.com/remarqable/tmpio/internal/version.Date=$(date -u +%Y-%m-%d)" -o bin/api-linux-amd64 ./cmd/api
 ssh "$HOST" 'id tmp >/dev/null 2>&1 || useradd --system --home /opt/tmp --shell /usr/sbin/nologin tmp; mkdir -p /opt/tmp/bin /etc/tmp; chown -R tmp:tmp /opt/tmp'
 scp -q bin/api-linux-amd64 "$HOST:/opt/tmp/bin/api.new"
 echo "4. env + systemd"

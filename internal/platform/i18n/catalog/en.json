@@ -339,5 +339,6 @@
   "drive.clear": "Clear",
   "drive.selected_one": "1 item selected",
   "drive.selected_many": "{n} items selected",
-  "drive.folders_immovable": "Folders cannot be moved yet"
+  "drive.folders_immovable": "Folders cannot be moved yet",
+  "site.build": "Version and build date of this instance"
 }

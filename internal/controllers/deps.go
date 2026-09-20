@@ -24,6 +24,7 @@ import (
 	"github.com/remarqable/tmpio/internal/platform/i18n"
 	"github.com/remarqable/tmpio/internal/platform/obs"
 	"github.com/remarqable/tmpio/internal/platform/ratelimit"
+	"github.com/remarqable/tmpio/internal/version"
 )
 
 // Deps are the shared dependencies of every controller.
@@ -149,6 +150,7 @@ func (d *Deps) base(c *gin.Context, extra gin.H) gin.H {
 		"SourceURL":     d.Cfg.SourceURL,
 		"Path":          c.Request.URL.Path,
 		"Now":           time.Now(),
+		"Build":         version.String(),
 	}
 	if p, sess, user, tenant, ok := middleware.OwnerSession(c); ok {
 		data["Principal"] = p

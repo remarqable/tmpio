@@ -23,10 +23,14 @@ tunnel-stop:
 	scripts/tunnel.sh stop
 
 run: ## Run the API with config/local.env
-	@set -a && . ./$(ENV) && set +a && go run ./cmd/api
+	@set -a && . ./$(ENV) && set +a && go run -ldflags="$(LDFLAGS)" ./cmd/api
+
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+BUILD_DATE ?= $(shell date -u +%Y-%m-%d)
+LDFLAGS = -X github.com/remarqable/tmpio/internal/version.Version=$(VERSION) -X github.com/remarqable/tmpio/internal/version.Date=$(BUILD_DATE)
 
 build:
-	go build -o bin/ ./cmd/...
+	go build -ldflags="$(LDFLAGS)" -o bin/ ./cmd/...
 
 kill: ## Stop a server started by make run
 	@p=$$(grep -sE '^PORT=' $(ENV) | cut -d= -f2 | tr -d '"'); p=$${p:-8000}; \
