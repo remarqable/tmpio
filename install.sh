@@ -25,7 +25,9 @@ VERSION="1.1.0"
 # Where this script updates itself from. Override for a fork or a branch.
 RAW_URL=${TMP_RAW_URL:-https://raw.githubusercontent.com/remarqable/tmpio/main/install.sh}
 
-DIR="/opt/tmp"
+# TMP_DIR lets the verbs find an install that was made with --dir, since the
+# flags are parsed after the verb has already had to locate it.
+DIR=${TMP_DIR:-/opt/tmp}
 TAG="1"
 PORT="8000"
 DOMAIN=""
@@ -59,6 +61,10 @@ Usage:
   install.sh status                      running, healthy, which version
   install.sh logs                        follow the server log
   install.sh restart                     restart without changing version
+  install.sh backup                      dump the database to a file
+  install.sh restore <file>              replace the database with a backup
+  install.sh reset                       empty the database, keep everything else
+  install.sh uninstall [--purge]         remove tmp; --purge deletes its data
 
 Options:
   --domain <host>     the public name this instance answers on (required)
@@ -73,6 +79,8 @@ Options:
   --no-caddy          do not install or configure Caddy; bring your own proxy
   --no-firewall       do not touch ufw
   --print-compose     print the compose file this script would write, and exit
+  --yes, -y           do not ask to confirm a destructive command
+  --purge             with uninstall: delete the data volume too
   --no-self-update    do not fetch a newer copy of this script first
   --dry-run           say what would happen, change nothing
   -h, --help          this
@@ -159,6 +167,146 @@ wait_healthy() {
     sleep 2
   done
   return 1
+}
+
+# --- backup, reset, uninstall ----------------------------------------------
+
+DB_USER=app_owner
+DB_NAME=tmp
+
+# Destructive verbs ask for the word back. A y/N is too easy to answer by
+# reflex, and a script that finds no terminal must not guess on your behalf.
+# The first argument that is not a flag. Without this, `restore --yes file`
+# takes --yes as the filename.
+first_arg() {
+  local a
+  for a in "$@"; do
+    case "$a" in -*) ;; *) printf '%s' "$a"; return ;; esac
+  done
+}
+
+confirm() { # confirm <sentence> <word>
+  local answer
+  [ "${ASSUME_YES:-0}" -eq 1 ] && return 0
+  if [ ! -t 0 ]; then
+    die "$1 Re-run from a terminal, or pass --yes if you mean it in a script."
+  fi
+  say ""
+  say "  ${RED}$1${NC}"
+  printf '  type %s to continue: ' "$2" > /dev/tty
+  read -r answer < /dev/tty || true
+  [ "$answer" = "$2" ] || die "cancelled; nothing was changed"
+}
+
+manage_backup() { # manage_backup [quiet]
+  local ts out
+  ts=$(date -u +%Y%m%d-%H%M%S)
+  mkdir -p "${DIR}/backups"
+  out="${DIR}/backups/tmp-${ts}.sql.gz"
+  [ "${1:-}" = "quiet" ] || say ""
+  say "  ${DIM}dumping the database…${NC}"
+  if ! docker compose exec -T db pg_dump -U "$DB_USER" -d "$DB_NAME" 2>/dev/null | gzip > "$out"; then
+    rm -f "$out"
+    die "the dump failed; is the database running? ($0 status)"
+  fi
+  # pg_dump can exit 0 having written nothing if the container is not ready.
+  if [ ! -s "$out" ]; then
+    rm -f "$out"
+    die "the dump came out empty; nothing was saved"
+  fi
+  say "  ${GREEN}✓${NC} ${out} ${DIM}($(du -h "$out" | cut -f1))${NC}"
+  [ "${1:-}" = "quiet" ] || say ""
+  BACKUP_PATH="$out"
+}
+
+manage_restore() { # manage_restore <file>
+  local f="${1:-}"
+  [ -n "$f" ] || die "which backup? $0 restore <file>   (see ${DIR}/backups)"
+  [ -f "$f" ] || die "no such file: $f"
+  confirm "This replaces everything in the database with ${f}." "restore"
+  manage_backup quiet   # the state being replaced is worth keeping too
+  say "  ${DIM}restoring…${NC}"
+  docker compose exec -T db psql -qU "$DB_USER" -d "$DB_NAME" \
+    -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' >/dev/null
+  case "$f" in
+    *.gz) gzip -dc "$f" ;;
+    *)    cat "$f" ;;
+  esac | docker compose exec -T db psql -qU "$DB_USER" -d "$DB_NAME" >/dev/null
+  docker compose restart app >/dev/null 2>&1
+  wait_healthy || die "restored, but the app did not come back healthy ($0 logs)"
+  say "  ${GREEN}✓${NC} restored from ${f}"
+  say ""
+}
+
+# Keeps the install, the domain and the certificate; empties the database.
+# The app recreates its schema and its owner account from .env at startup.
+manage_reset() {
+  local origin
+  origin=$(grep -m1 '^APP_ORIGIN=' "${DIR}/.env" 2>/dev/null | cut -d= -f2- || true)
+  confirm "This deletes every page, revision and sharing link in ${origin:-this instance}." "reset"
+  manage_backup quiet
+  say "  ${DIM}emptying the database…${NC}"
+  docker compose down -v >/dev/null 2>&1
+  docker compose up -d >/dev/null 2>&1
+  wait_healthy || die "the app did not come back healthy ($0 logs)"
+  say "  ${GREEN}✓${NC} reset. Sign in with the account in ${DIR}/.env"
+  say "  ${DIM}the previous contents are in ${BACKUP_PATH}${NC}"
+  say ""
+}
+
+manage_uninstall() {
+  local origin domain caddyfile backup_keep
+  origin=$(grep -m1 '^APP_ORIGIN=' "${DIR}/.env" 2>/dev/null | cut -d= -f2- || true)
+  domain=${origin#https://}; domain=${domain#http://}; domain=${domain%%/*}
+
+  if [ "${PURGE:-0}" -eq 1 ]; then
+    confirm "This removes tmp AND deletes its data. The pages are not recoverable." "${domain:-uninstall}"
+    manage_backup quiet || true
+  else
+    confirm "This removes tmp from this machine. Its data volume is kept." "${domain:-uninstall}"
+  fi
+
+  # Backups live inside the install directory, which is about to go.
+  if [ -d "${DIR}/backups" ] && [ -n "$(ls -A "${DIR}/backups" 2>/dev/null)" ]; then
+    backup_keep="/root/tmp-backups-$(date -u +%Y%m%d-%H%M%S)"
+    mkdir -p "$backup_keep" && cp -a "${DIR}/backups/." "$backup_keep/" \
+      && say "  ${DIM}kept your backups in ${backup_keep}${NC}"
+  fi
+
+  say "  ${DIM}stopping containers…${NC}"
+  if [ "${PURGE:-0}" -eq 1 ]; then
+    docker compose down -v >/dev/null 2>&1 || true
+  else
+    docker compose down >/dev/null 2>&1 || true
+  fi
+
+  caddyfile=/etc/caddy/Caddyfile
+  if [ -f "$caddyfile" ] && grep -q '# >>> tmp >>>' "$caddyfile"; then
+    cp "$caddyfile" "${caddyfile}.bak.$(date +%s)"
+    awk '/# >>> tmp >>>/ { skip = 1; next } /# <<< tmp <<</ { skip = 0; next } !skip' \
+      "$caddyfile" > "${caddyfile}.new" && mv "${caddyfile}.new" "$caddyfile"
+    if caddy validate --config "$caddyfile" --adapter caddyfile >/dev/null 2>&1; then
+      systemctl reload caddy >/dev/null 2>&1 || systemctl restart caddy >/dev/null 2>&1 || true
+      say "  ${DIM}removed the tmp block from ${caddyfile}${NC}"
+    else
+      # Leaving a Caddyfile that does not parse would take down every other
+      # site on this host at the next reload.
+      mv "${caddyfile}.bak."* "$caddyfile" 2>/dev/null || true
+      say "  ${RED}left ${caddyfile} alone; it did not validate without the tmp block${NC}"
+    fi
+  fi
+
+  cd /
+  rm -rf "$DIR"
+  say ""
+  if [ "${PURGE:-0}" -eq 1 ]; then
+    say "  ${GREEN}✓${NC} tmp removed, data deleted"
+  else
+    say "  ${GREEN}✓${NC} tmp removed. Its data volume is still here:"
+    say "  ${DIM}docker volume ls | grep pgdata      to see it${NC}"
+    say "  ${DIM}docker volume rm tmp_pgdata         to delete it${NC}"
+  fi
+  say ""
 }
 
 manage_update() {
@@ -265,6 +413,9 @@ menu() {
   say "  status    ${DIM}running, healthy, which version${NC}"
   say "  logs      ${DIM}follow the server log${NC}"
   say "  restart   ${DIM}restart without changing version${NC}"
+  say "  backup    ${DIM}dump the database to ${DIR}/backups${NC}"
+  say "  reset     ${DIM}empty the database, keep this install${NC}"
+  say "  uninstall ${DIM}remove tmp from this machine${NC}"
   rule
   say "  ${DIM}run${NC} $0 <command>${DIM}   ·   --help to reconfigure${NC}"
   say ""
@@ -351,10 +502,17 @@ BARE_RUN=0
 
 SUBCOMMAND=""
 case "${1:-}" in
-  update|status|version|logs|restart) SUBCOMMAND="$1"; shift ;;
+  update|status|version|logs|restart|backup|restore|reset|uninstall) SUBCOMMAND="$1"; shift ;;
 esac
 
 if [ -n "$SUBCOMMAND" ]; then
+  ASSUME_YES=0; PURGE=0
+  for a in "$@"; do
+    case "$a" in
+      --yes|-y) ASSUME_YES=1 ;;
+      --purge)  PURGE=1 ;;
+    esac
+  done
   [ "$(id -u)" -eq 0 ] || die "run this as root (prefix it with sudo)"
   [ -f "${DIR}/docker-compose.yml" ] || die "no install in ${DIR} — run this with --domain <host> first"
   cd "$DIR"
@@ -362,8 +520,12 @@ if [ -n "$SUBCOMMAND" ]; then
     update)  manage_update ;;
     status)  manage_status ;;
     version) running_version ;;
-    logs)    docker compose logs -f --tail "${1:-100}" app ;;
+    logs)    docker compose logs -f --tail "$(first_arg "$@" | grep -E '^[0-9]+$' || echo 100)" app ;;
     restart) docker compose restart app && wait_healthy && say "restarted $(running_version)" ;;
+    backup)  manage_backup ;;
+    restore) manage_restore "$(first_arg "$@")" ;;
+    reset)     manage_reset ;;
+    uninstall) manage_uninstall ;;
   esac
   exit 0
 fi
