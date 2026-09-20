@@ -29,8 +29,8 @@
         <input type="hidden" name="return" value="{{.Return}}">
         {{if .OAuthRequest}}<input type="hidden" name="oauth" value="{{.OAuthRequest}}">{{end}}
         <div class="auth-field">
-          <label for="dev-email">{{t "landing.dev_email"}}</label>
-          <input class="auth-input" id="dev-email" name="email" type="email" required>
+          <label for="dev-user">{{t "landing.dev_user"}}</label>
+          <input class="auth-input" id="dev-user" name="username" type="text" required autocapitalize="none" autocorrect="off" spellcheck="false">
         </div>
         <div class="auth-field">
           <label for="dev-name">{{t "landing.dev_name"}}</label>

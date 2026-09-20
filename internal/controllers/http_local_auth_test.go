@@ -213,3 +213,34 @@ func TestLegacyEmailFieldStillAccepted(t *testing.T) {
 	require.Equal(t, 302, status)
 	require.True(t, hasSessionCookie(anon))
 }
+
+// TestDevSignInTakesAUsername is the case a developer hits first: make run,
+// type admin, and the form refuses because the field wanted an address.
+func TestDevSignInTakesAUsername(t *testing.T) {
+	h := newHarness(t)
+	h.cfg.DevLoginBypass = true
+
+	anon := h.anon()
+	status, loc := postForm(anon, "/auth/dev", url.Values{"username": {"admin"}}, h.origin)
+	require.Equal(t, 302, status, "a plain username must be accepted")
+	require.Equal(t, "/", loc)
+	require.True(t, hasSessionCookie(anon))
+
+	res := anon.do("GET", "/admin", nil, nil)
+	require.Equal(t, 200, res.StatusCode)
+	res.Body.Close()
+
+	// The form no longer demands an address of the browser either.
+	res = h.anon().do("GET", "/", nil, nil)
+	body := readAll(res)
+	require.Contains(t, body, `name="username"`)
+	require.NotContains(t, body, `id="dev-email"`)
+
+	// A name with a space is still refused.
+	status, _ = postForm(h.anon(), "/auth/dev", url.Values{"username": {"not a name"}}, h.origin)
+	require.Equal(t, 400, status)
+
+	// An address still works, and is still the same account on repeat.
+	status, _ = postForm(h.anon(), "/auth/dev", url.Values{"username": {"someone@x.test"}}, h.origin)
+	require.Equal(t, 302, status)
+}

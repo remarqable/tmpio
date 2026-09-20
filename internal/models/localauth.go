@@ -17,6 +17,33 @@ import (
 	"github.com/remarqable/tmpio/internal/platform/errors"
 )
 
+// DevIssuer is the identity issuer for the development sign-in bypass. Like
+// LocalIssuer it is this server vouching for a name it was handed, not a
+// provider asserting one.
+const DevIssuer = "dev"
+
+// SelfIssued reports whether an identity came from this server rather than
+// from an identity provider. Those identities are names, not verified
+// addresses, so the verified-address rule does not apply to them.
+func SelfIssued(issuer string) bool { return issuer == LocalIssuer || issuer == DevIssuer }
+
+// ValidUsername accepts a plain name or an email address and refuses anything
+// awkward to type or ambiguous between accounts.
+func ValidUsername(u string) error {
+	if n := len([]rune(u)); n < 2 || n > 200 {
+		return errors.New(errors.CodeValidationFailed, "a username must be between 2 and 200 characters")
+	}
+	for _, r := range u {
+		switch {
+		case r >= 'a' && r <= 'z', r >= '0' && r <= '9':
+		case r == '.' || r == '-' || r == '_' || r == '+' || r == '@':
+		default:
+			return errors.New(errors.CodeValidationFailed, "a username may contain letters, digits, and . - _ + @ only")
+		}
+	}
+	return nil
+}
+
 // LocalIssuer is the identity issuer for the self-hosted owner account. It is
 // not a provider: the subject is the email address and this server is the only
 // thing that vouches for it.
@@ -106,6 +133,9 @@ func EnsureLocalOwner(ctx context.Context, username, password, initialConfig, in
 	username = strings.ToLower(strings.TrimSpace(username))
 	if username == "" {
 		return false, errors.New(errors.CodeValidationFailed, "a username is required for the local owner account")
+	}
+	if err := ValidUsername(username); err != nil {
+		return false, err
 	}
 	var existing LocalCredential
 	err := db.Get().WithContext(ctx).Where("username = ?", username).First(&existing).Error

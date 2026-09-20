@@ -108,16 +108,24 @@ func (d *Deps) DevLogin(c *gin.Context) {
 		d.renderError(c, http.StatusForbidden, i18n.T("en", "error.cross_origin"))
 		return
 	}
-	email := strings.ToLower(strings.TrimSpace(c.PostForm("email")))
-	if email == "" || !strings.Contains(email, "@") || len(email) > 200 {
-		d.renderError(c, http.StatusBadRequest, i18n.T("en", "auth.email_required"))
+	name := c.PostForm("username")
+	if name == "" {
+		name = c.PostForm("email") // the field was called email before usernames
+	}
+	name = strings.ToLower(strings.TrimSpace(name))
+	if name == "" {
+		d.renderError(c, http.StatusBadRequest, i18n.T("en", "auth.username_required"))
+		return
+	}
+	if err := models.ValidUsername(name); err != nil {
+		d.renderError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 	var oauthReq []byte
 	if raw := c.PostForm("oauth"); raw != "" && json.Valid([]byte(raw)) {
 		oauthReq = []byte(raw)
 	}
-	d.finishSignIn(c, auth.DevIdentity(email, strings.TrimSpace(c.PostForm("name"))), safeReturnPath(c.PostForm("return")), oauthReq)
+	d.finishSignIn(c, auth.DevIdentity(name, strings.TrimSpace(c.PostForm("name"))), safeReturnPath(c.PostForm("return")), oauthReq)
 }
 
 // LocalLogin signs in the local owner of a self-hosted instance with an email

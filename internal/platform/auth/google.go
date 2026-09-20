@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	"strings"
 	"sync"
 
 	"github.com/coreos/go-oidc/v3/oidc"
@@ -121,11 +122,16 @@ func (g *Google) Complete(ctx context.Context, state, code string) (*models.Exte
 }
 
 // DevIdentity returns a synthetic verified identity for the development bypass.
-func DevIdentity(email, name string) models.ExternalIdentity {
+func DevIdentity(username, name string) models.ExternalIdentity {
 	if name == "" {
-		name = email
+		name = username
 	}
-	return models.ExternalIdentity{Issuer: "dev", Subject: email, Email: email, EmailVerified: true, Name: name}
+	id := models.ExternalIdentity{Issuer: models.DevIssuer, Subject: username, Name: name}
+	// "admin" is a username, not an address: do not claim to have verified one.
+	if strings.Contains(username, "@") {
+		id.Email, id.EmailVerified = username, true
+	}
+	return id
 }
 
 // RandomString returns n random bytes base64url-encoded.
