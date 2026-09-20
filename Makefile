@@ -6,7 +6,7 @@ ENV?=config/local.env
 
 .PHONY: reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
 
-deploy: ## Build, migrate and deploy to tmp.io (reads config/deploy.env for DOADMIN_URL, BASICAUTH_PW, optional GOOGLE_*)
+deploy: ## Legacy bare-binary deploy (refuses a host running the container image; see scripts/deploy.sh)
 	@test -f config/deploy.env || { echo "create config/deploy.env from config/deploy.env.example"; exit 1; }
 	@set -a && . ./config/deploy.env && set +a && scripts/deploy.sh
 

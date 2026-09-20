@@ -16,6 +16,17 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 HOST=${HOST:-root@tmp.io}; ORIGIN=${ORIGIN:-https://tmp.io}; PORT=8100
+# This is the original bare-binary path. A host that runs tmp from the
+# container image already owns the port, so this script would install a
+# systemd unit that can never bind and leave it restarting forever. Refuse
+# before touching the database or the host.
+if ssh "$HOST" 'docker ps --format "{{.Image}}" 2>/dev/null | grep -q "ghcr.io/remarqable/tmpio"'; then
+  echo "error: $HOST runs tmp from the container image, not a bare binary." >&2
+  echo "  release:  git tag -a vX.Y.Z -m ... && git push origin vX.Y.Z" >&2
+  echo "  deploy:   ssh $HOST 'cd /opt/tmp && docker compose pull && docker compose up -d'" >&2
+  echo "  (FORCE_SYSTEMD=1 runs this legacy path anyway)" >&2
+  [ "${FORCE_SYSTEMD:-}" = "1" ] || exit 1
+fi
 PSQL=${PSQL:-/opt/homebrew/opt/postgresql@16/bin/psql}
 : "${DOADMIN_URL:?set DOADMIN_URL}"; : "${BASICAUTH_PW:?set BASICAUTH_PW}"
 mkdir -p data
@@ -71,9 +82,15 @@ import re, sys, os, shutil, time
 user, h = sys.argv[1], sys.argv[2]
 p = "/etc/caddy/Caddyfile"; s = open(p).read()
 block = open("/tmp/Caddyfile.tmp.io").read().replace("{$TMP_BASICAUTH_USER} {$TMP_BASICAUTH_HASH}", user + " " + h)
-if "\ntmp.io" not in s:
+# The site block may be the first thing in the file, so anchor on a line
+# start rather than a leading newline.
+if not re.search(r"(?m)^tmp\.io\b", s):
     shutil.copy(p, p + ".bak." + str(int(time.time())))
-    i = s.index("\nhttps:// {"); s = s[:i] + "\n" + block + s[i:]
+    anchor = "\nhttps:// {"
+    if anchor in s:
+        i = s.index(anchor); s = s[:i] + "\n" + block + s[i:]
+    else:
+        s = s.rstrip() + "\n\n" + block + "\n"
 else:
     s = re.sub(r"basic_auth \{\n\s*\S+ \S+\n\s*\}", "basic_auth {\n            " + user + " " + h + "\n        }", s)
 open(p, "w").write(s)
