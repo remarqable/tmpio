@@ -51,7 +51,7 @@ curl -fsSL https://raw.githubusercontent.com/remarqable/tmpio/main/install.sh \
 
 It asks you to set a password for the `admin` account, or generates one and
 prints it if it cannot ask. [install.sh](install.sh) is
-about 290 lines and worth reading before you pipe it to root; it writes three
+worth reading before you pipe it to root; it writes three
 files and hands off to `docker compose`, and it does not phone home.
 
 Prefer to do it yourself, or already have a reverse proxy? Two containers and
@@ -78,6 +78,13 @@ the one command you need afterwards:
 /opt/tmp/install.sh status     # running, healthy, which version
 /opt/tmp/install.sh logs       # follow the server log
 ```
+
+Run from disk it checks whether a newer copy of itself has been published,
+replaces itself and starts again, so you are never running last month's
+installer against this month's image. It skips that when piped from curl
+(nothing on disk to update), inside a git checkout (that would overwrite
+your working copy), when there is no network, and when the download is not
+a valid script. `--no-self-update` turns it off.
 
 `update` prints the version before and after, so you can tell a real update
 from a no-op, and it waits for the container's health check rather than

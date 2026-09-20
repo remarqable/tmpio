@@ -3,7 +3,12 @@
 # tmp installer — https://github.com/remarqable/tmpio
 #
 #   curl -fsSL https://raw.githubusercontent.com/remarqable/tmpio/main/install.sh \
-#     | sudo bash -s -- --domain tmp.example.com --email you@example.com
+#     | sudo bash -s -- --domain notes.example.com
+#
+# Afterwards the same script lives at /opt/tmp/install.sh. Run it with no
+# arguments to see what is installed and what you can do; `install.sh update`
+# pulls the current image. It keeps itself current, so there is no second
+# thing to fetch.
 #
 # Read this before running it. It is short on purpose: it installs Docker and
 # Caddy, writes three files, and hands off to `docker compose`. It does not
@@ -15,7 +20,10 @@
 
 set -euo pipefail
 
-VERSION="1.0.0"
+VERSION="1.1.0"
+
+# Where this script updates itself from. Override for a fork or a branch.
+RAW_URL=${TMP_RAW_URL:-https://raw.githubusercontent.com/remarqable/tmpio/main/install.sh}
 
 DIR="/opt/tmp"
 TAG="1"
@@ -59,12 +67,53 @@ Options:
   --no-caddy          do not install or configure Caddy; bring your own proxy
   --no-firewall       do not touch ufw
   --print-compose     print the compose file this script would write, and exit
+  --no-self-update    do not fetch a newer copy of this script first
   --dry-run           say what would happen, change nothing
   -h, --help          this
 
 The install directory ends up holding docker-compose.yml and .env. Your data
 lives in the Docker volume tmp_pgdata, not in that directory.
 EOF
+}
+
+# --- keeping this script current -------------------------------------------
+
+# Fetch the published script and, if it differs, replace this file and start
+# again. Piped from curl there is nothing on disk to update and nothing to
+# gain; in a git checkout this would overwrite someone's working copy, so it
+# leaves both alone.
+self_update() {
+  local dir tmpf newv
+  [ "${TMP_NO_SELF_UPDATE:-0}" = "1" ] && return 0
+  [ -f "$0" ] || return 0
+  dir=$(cd "$(dirname "$0")" && pwd)
+  [ -d "${dir}/.git" ] && return 0
+  [ -w "$0" ] || return 0
+  command -v curl >/dev/null 2>&1 || return 0
+
+  tmpf="${dir}/.install.sh.new"
+  if ! curl -fsSL --max-time 20 "$RAW_URL" -o "$tmpf" 2>/dev/null; then
+    rm -f "$tmpf"; return 0          # offline, or GitHub is having a day
+  fi
+  # Never replace this script with something that is not a working script.
+  if [ ! -s "$tmpf" ] \
+     || ! head -1 "$tmpf" | grep -q '^#!/usr/bin/env bash' \
+     || ! grep -q '^VERSION=' "$tmpf" \
+     || ! bash -n "$tmpf" 2>/dev/null; then
+    rm -f "$tmpf"; return 0
+  fi
+  if cmp -s "$tmpf" "$0"; then
+    rm -f "$tmpf"; return 0          # already current
+  fi
+
+  newv=$(grep -m1 '^VERSION=' "$tmpf" | cut -d'"' -f2)
+  chmod 0755 "$tmpf"
+  # A rename, not a copy: the running shell keeps reading the old inode, so
+  # overwriting the file it is executing cannot corrupt this run.
+  mv -f "$tmpf" "$0" || { rm -f "$tmpf"; return 0; }
+  printf '  %sthis script updated to %s (was %s); restarting%s\n' \
+    "${DIM}" "${newv:-newer}" "${VERSION}" "${NC}"
+  TMP_NO_SELF_UPDATE=1 exec "$0" "$@"
 }
 
 # --- managing an install that already exists -------------------------------
@@ -210,6 +259,9 @@ COMPOSE
 # Subcommands come first: on a machine that already has tmp, the common verbs
 # should not require remembering install flags, and a bare run should not
 # reinstall anything by surprise.
+for a in "$@"; do [ "$a" = "--no-self-update" ] && TMP_NO_SELF_UPDATE=1; done
+self_update "$@"
+
 BARE_RUN=0
 [ $# -eq 0 ] && BARE_RUN=1
 
@@ -244,6 +296,7 @@ while [ $# -gt 0 ]; do
     --no-caddy)      WITH_CADDY=0; shift ;;
     --no-firewall)   WITH_FIREWALL=0; shift ;;
     --print-compose) compose_file; exit 0 ;;
+    --no-self-update) shift ;;   # handled before anything else
     --dry-run)       DRY_RUN=1; shift ;;
     -h|--help)       usage; exit 0 ;;
     *)               die "unknown option: $1 (try --help)" ;;
