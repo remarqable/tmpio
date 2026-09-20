@@ -4,11 +4,15 @@ PG_DATA?=data/pg16
 PG_PORT?=5433
 ENV?=config/local.env
 
-.PHONY: reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
+.PHONY: update reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
 
 deploy: ## Legacy bare-binary deploy (refuses a host running the container image; see scripts/deploy.sh)
 	@test -f config/deploy.env || { echo "create config/deploy.env from config/deploy.env.example"; exit 1; }
 	@set -a && . ./config/deploy.env && set +a && scripts/deploy.sh
+
+update: ## Update a host to the current release, the way a self-hoster does
+	@scp -q scripts/tmp $${HOST:-root@tmp.io}:/usr/local/bin/tmp
+	@ssh $${HOST:-root@tmp.io} 'chmod 0755 /usr/local/bin/tmp && tmp update'
 
 deploy-status: ## Service, health and recent errors on the server
 	@ssh $${HOST:-root@tmp.io} 'systemctl is-active tmp; systemctl status tmp --no-pager | sed -n 1,5p; curl -s 127.0.0.1:8100/readyz; echo; journalctl -u tmp --since "1 hour ago" --no-pager | grep -c ERR || true'
@@ -105,8 +109,9 @@ check: ## The blueprint's boundary checks
 	@! grep -rn "db\.Get()\|db\.WithTenant\|gorm\.DB" internal/controllers internal/mcp --include=*.go | grep -v _test.go || { echo "database access outside models"; exit 1; }
 	@echo "boundary checks passed"
 
-installer-check: ## The installer's embedded compose file must match docker-compose.yml
+installer-check: ## The installer's embedded files must match the ones in the repo
 	@bash install.sh --print-compose | diff -u docker-compose.yml - && echo "installer compose matches"
+	@bash install.sh --print-helper | diff -u scripts/tmp - && echo "installer helper matches"
 
 vulncheck: ## Report known vulnerabilities in the dependency graph that this code reaches
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...

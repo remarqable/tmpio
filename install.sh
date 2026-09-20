@@ -50,12 +50,126 @@ tmp installer ${VERSION}
   --no-caddy          do not install or configure Caddy; bring your own proxy
   --no-firewall       do not touch ufw
   --print-compose     print the compose file this script would write, and exit
+  --print-helper      print the tmp helper this script would install, and exit
   --dry-run           say what would happen, change nothing
   -h, --help          this
 
 The install directory ends up holding docker-compose.yml and .env. Your data
 lives in the Docker volume tmp_pgdata, not in that directory.
 EOF
+}
+
+helper_file() {
+  cat <<'HELPER'
+#!/usr/bin/env bash
+#
+# tmp — manage a self-hosted tmp instance.
+#
+#   tmp update     pull the current image and restart onto it
+#   tmp status     is it running, is it healthy, what version
+#   tmp version    the version this instance is running
+#   tmp logs       follow the server log
+#   tmp restart    restart without changing version
+#
+# It is a wrapper around `docker compose` in the install directory, so
+# everything it does can be done by hand. Set TMP_DIR to point it elsewhere.
+set -euo pipefail
+
+DIR=${TMP_DIR:-/opt/tmp}
+BOLD=$'\033[1m'; DIM=$'\033[2m'; RED=$'\033[31m'; NC=$'\033[0m'
+[ -t 1 ] || { BOLD=""; DIM=""; RED=""; NC=""; }
+
+die() { printf '%stmp: %s%s\n' "$RED" "$*" "$NC" >&2; exit 1; }
+
+# Help answers before anything else, so it works on a machine that has no
+# instance on it yet.
+case "${1:-help}" in
+  -h|--help|help) sed -n '3,12p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+esac
+
+[ -d "$DIR" ] || die "no install directory at $DIR (set TMP_DIR)"
+[ -f "$DIR/docker-compose.yml" ] || die "no docker-compose.yml in $DIR"
+cd "$DIR"
+
+dc() { docker compose "$@"; }
+
+# The image carries its own version as an OCI label, so an instance can say
+# what it is without exposing that on a public endpoint.
+image_ref() { dc config --images 2>/dev/null | head -1; }
+label_version() {
+  docker image inspect "$1" \
+    --format '{{index .Config.Labels "org.opencontainers.image.version"}}' 2>/dev/null \
+    || true
+}
+running_version() {
+  local id ref
+  id=$(dc ps -q app 2>/dev/null || true)
+  [ -n "$id" ] || { echo "not running"; return; }
+  ref=$(docker inspect "$id" --format '{{.Image}}' 2>/dev/null || true)
+  local v; v=$(label_version "$ref")
+  echo "${v:-unknown}"
+}
+
+# Compose reports healthy before the app has necessarily finished migrating,
+# so wait on the container's own health check rather than on `up` returning.
+wait_healthy() {
+  local id deadline=$((SECONDS + 120)) state
+  id=$(dc ps -q app 2>/dev/null || true)
+  [ -n "$id" ] || return 1
+  while [ $SECONDS -lt $deadline ]; do
+    state=$(docker inspect "$id" --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' 2>/dev/null || echo unknown)
+    case "$state" in
+      healthy|running) return 0 ;;
+      exited|dead)     return 1 ;;
+    esac
+    sleep 2
+  done
+  return 1
+}
+
+cmd_update() {
+  local before after ref
+  before=$(running_version)
+  printf 'running   %s\n' "${BOLD}${before}${NC}"
+  printf '%spulling…%s\n' "$DIM" "$NC"
+  dc pull -q 2>/dev/null || dc pull
+
+  ref=$(image_ref)
+  after=$(label_version "$ref")
+  after=${after:-unknown}
+
+  if [ "$before" = "$after" ] && [ "$before" != "not running" ]; then
+    printf 'already on %s — nothing to do\n' "${BOLD}${after}${NC}"
+    return 0
+  fi
+
+  printf '%sstarting %s…%s\n' "$DIM" "$after" "$NC"
+  dc up -d
+  if wait_healthy; then
+    printf 'now on    %s %s(was %s)%s\n' "${BOLD}$(running_version)${NC}" "$DIM" "$before" "$NC"
+  else
+    printf '%sthe app did not come up healthy. Recent log:%s\n' "$RED" "$NC" >&2
+    dc logs --tail 40 app >&2
+    exit 1
+  fi
+}
+
+cmd_status() {
+  printf 'version   %s\n' "$(running_version)"
+  printf 'directory %s\n' "$DIR"
+  echo
+  dc ps
+}
+
+case "${1:-help}" in
+  update)  cmd_update ;;
+  status)  cmd_status ;;
+  version) running_version ;;
+  logs)    shift; dc logs -f --tail "${1:-100}" app ;;
+  restart) dc restart app && wait_healthy && echo "restarted $(running_version)" ;;
+  *) die "unknown command: $1 (try: tmp help)" ;;
+esac
+HELPER
 }
 
 compose_file() {
@@ -134,6 +248,7 @@ while [ $# -gt 0 ]; do
     --no-caddy)      WITH_CADDY=0; shift ;;
     --no-firewall)   WITH_FIREWALL=0; shift ;;
     --print-compose) compose_file; exit 0 ;;
+    --print-helper)  helper_file; exit 0 ;;
     --dry-run)       DRY_RUN=1; shift ;;
     -h|--help)       usage; exit 0 ;;
     *)               die "unknown option: $1 (try --help)" ;;
@@ -298,6 +413,15 @@ if [ "$WITH_FIREWALL" -eq 1 ] && command -v ufw >/dev/null; then
   note "allowed 22, 80 and 443; the app itself is bound to 127.0.0.1 and the database publishes no port"
 fi
 
+step "Management command"
+if [ "$DRY_RUN" -eq 1 ]; then
+  note "would install /usr/local/bin/tmp"
+else
+  helper_file > /usr/local/bin/tmp
+  chmod 0755 /usr/local/bin/tmp
+  note "installed /usr/local/bin/tmp (try: tmp update)"
+fi
+
 step "Starting"
 cd "$DIR"
 docker compose pull -q 2>/dev/null || docker compose pull
@@ -337,7 +461,8 @@ else
   say "  ${DIM}password as you set it${NC}"
 fi
 say ""
-say "  ${DIM}update   cd ${DIR} && docker compose pull && docker compose up -d${NC}"
-say "  ${DIM}logs     cd ${DIR} && docker compose logs -f app${NC}"
+say "  ${DIM}update   tmp update${NC}"
+say "  ${DIM}logs     tmp logs${NC}"
+say "  ${DIM}status   tmp status${NC}"
 say "  ${DIM}backup   docs/DOCKER.md${NC}"
 say ""

@@ -65,10 +65,28 @@ $EDITOR .env      # APP_ORIGIN, SESSION_SECRET, the two database passwords, OWNE
 docker compose up -d
 ```
 
-Sign in with the address and password you set. Updating is `docker compose pull
-&& docker compose up -d`; the new container migrates itself. Full instructions,
-including backups, your own PostgreSQL and building the image from source, are
-in [docs/DOCKER.md](docs/DOCKER.md).
+Sign in with the address and password you set.
+
+### Updating
+
+The installer puts a `tmp` command on the host:
+
+```bash
+tmp update     # pull the current image and restart onto it
+tmp status     # running, healthy, and which version
+tmp logs       # follow the server log
+```
+
+`tmp update` prints the version before and after, so you can tell a real
+update from a no-op, and it waits for the container's health check rather
+than returning as soon as Docker accepts the request. If it does not come up
+healthy it prints the log and exits non-zero.
+
+It is a wrapper around `docker compose` in the install directory. By hand,
+the same thing is `cd /opt/tmp && docker compose pull && docker compose up
+-d`; the new container migrates itself. Full instructions, including backups,
+your own PostgreSQL and building the image from source, are in
+[docs/DOCKER.md](docs/DOCKER.md).
 
 ## Quick start (from source)
 
