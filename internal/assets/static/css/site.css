@@ -1335,8 +1335,38 @@ textarea.tmp-editor-area { resize: none; }
 }
 .tmp-drive-bulk .tmp-btn[disabled] { opacity: 0.5; cursor: not-allowed; }
 
+/* On a phone the drive stops being a table. A name like "CRM options for a
+   two person team" cannot share a 390px line with a date, and squeezing the
+   columns just moves the problem; each row becomes a block instead, with the
+   metadata on a quiet second line under the name. */
 @media (max-width: 599.98px) {
-  .tmp-drive-c-rev, .tmp-drive-c-size { display: none; }
+  .tmp-drive,
+  .tmp-drive tbody,
+  .tmp-drive tr,
+  .tmp-drive td { display: block; width: 100%; }
+  .tmp-drive thead { display: none; }
+  .tmp-drive tbody tr {
+    position: relative;
+    padding: 0.5rem 0 0.5rem 1.75rem;
+    border-bottom: 1px solid var(--tmp-border);
+  }
+  .tmp-drive td { padding: 0; }
+  .tmp-drive-ck {
+    position: absolute;
+    left: 0;
+    top: 0.625rem;
+    width: auto;
+    padding-right: 0 !important;
+  }
+  /* The name wraps here rather than forcing the row wide. */
+  .tmp-drive-nm a { white-space: normal; overflow: visible; }
+  /* These have to out-specify `.tmp-drive td` above, which is (0,1,1) and
+     would otherwise keep every cell a block on its own line. */
+  .tmp-drive td.tmp-drive-num { display: inline; color: var(--tmp-fg-muted); }
+  .tmp-drive td.tmp-drive-c-size::before { content: " · "; }
+  /* Last, because it has the same specificity as the rule above and would
+     otherwise lose to it. */
+  .tmp-drive td.tmp-drive-c-rev { display: none; }
   .tmp-drive-dest input { width: 100%; }
   .tmp-drive-bulk-actions { margin-left: 0; width: 100%; }
 }
@@ -1359,4 +1389,40 @@ textarea.tmp-editor-area { resize: none; }
   opacity: 0.65;
   letter-spacing: 0.01em;
   overflow-wrap: anywhere;
+}
+
+/* Bootstrap's text-nowrap is right on a wide screen and wrong on a phone:
+   "r2 · 2026-09-20 05:54 UTC" cannot sit beside a wrapping path in 390px. */
+@media (max-width: 599.98px) {
+  .tmp-site .list-group-item { flex-wrap: wrap; }
+  .tmp-site .list-group-item > .text-nowrap { white-space: normal !important; }
+}
+
+/* A wide table on a narrow screen. Six columns cannot share 390px, and a
+   horizontal scrollbar inside a page is a way of not deciding. Marked tables
+   become one block per row instead, which is what the row already was. */
+@media (max-width: 599.98px) {
+  .tmp-stack-sm,
+  .tmp-stack-sm tbody,
+  .tmp-stack-sm tr,
+  .tmp-stack-sm td { display: block; width: 100%; }
+  .tmp-stack-sm thead { display: none; }
+  .tmp-stack-sm tbody tr {
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid var(--tmp-border);
+  }
+  .tmp-stack-sm tbody tr:last-child { border-bottom: 0; }
+  .tmp-stack-sm td {
+    padding: 0 0 0.25rem;
+    border: 0;
+    white-space: normal !important;
+  }
+  .tmp-stack-sm td:empty { display: none; }
+  .tmp-stack-sm td.text-end { text-align: left !important; }
+  .tmp-stack-sm .tmp-stack-lead {
+    font-family: var(--tmp-font-mono);
+    font-size: var(--tmp-text-xs);
+    color: var(--tmp-fg-muted);
+  }
+  .tmp-stack-sm td .tmp-btn { margin-top: 0.5rem; }
 }

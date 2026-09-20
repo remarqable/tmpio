@@ -10,11 +10,11 @@
   <form method="post" action="{{.Action}}" data-confirm="{{t "history.restore_confirm"}}"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="revision" value="{{.Rev}}"><input type="hidden" name="expected_revision" value="{{.Entry.CurrentRevision}}"><button class="tmp-btn mt-2">{{template "icon" "history"}} {{t "history.restore"}}</button></form></div>
 </div>
 {{end}}
-<div class="card"><table class="table align-middle mb-0">
+<div class="card"><table class="table align-middle mb-0 tmp-stack-sm">
 <thead><tr><th>{{t "history.revision"}}</th><th>{{t "history.when"}}</th><th>{{t "history.who"}}</th><th>{{t "history.operation"}}</th><th>{{t "history.summary"}}</th><th></th></tr></thead>
 <tbody>
 {{range .Items}}<tr>
-  <td>{{.Revision}}</td>
+  <td class="tmp-stack-lead">r{{.Revision}}</td>
   <td class="small text-nowrap">{{date .CreatedAt}}</td>
   <td>{{.Actor}}{{if .ShareLabel}} <span class="badge text-bg-secondary">{{.ShareLabel}}</span>{{end}}{{if .GrantID}} <span class="small tmp-muted">{{t "history.link_id" "id" (print .GrantID)}}</span>{{end}}{{if .AuthorName}}<div class="small tmp-muted">“{{.AuthorName}}” ({{t "history.unverified"}})</div>{{end}}</td>
   <td><span class="badge text-bg-secondary">{{.Operation}}</span>{{if .PriorPath}}<div class="small tmp-muted">{{t "history.from" "path" .PriorPath}}</div>{{end}}</td>
