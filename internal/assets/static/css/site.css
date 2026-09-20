@@ -316,16 +316,20 @@ body.tmp-site {
   min-width: 0;
   flex-shrink: 0;
 }
-.tmp-brand-name {
+/* The wordmark, at the same weight and tracking it has on the sign-in page and
+   the marketing site. Scoped to .tmp-site so it beats `.tmp-site a`, which was
+   painting the whole word in the link colour. */
+.tmp-site .tmp-brand-name {
   font-family: var(--tmp-font-heading);
   font-weight: 700;
-  font-size: 1.05rem;
+  font-size: 1.35rem;
+  letter-spacing: -0.02em;
   color: var(--tmp-fg);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.tmp-brand-name:hover { color: var(--tmp-fg); text-decoration: none; }
+.tmp-site .tmp-brand-name:hover { color: var(--tmp-fg); text-decoration: none; }
 .tmp-brand-dot { color: var(--tmp-accent); }
 
 .tmp-nav {
