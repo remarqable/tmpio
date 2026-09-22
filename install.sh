@@ -329,6 +329,25 @@ manage_uninstall() {
   say ""
 }
 
+# The version the registry is serving for the tag this install follows, read
+# from the image's own label without pulling it. Silent when docker, buildx,
+# the network or the registry are unavailable: a status line is not worth
+# failing a command over.
+#
+# No pipelines here on purpose. This script runs under `set -o pipefail`, and
+# `... | head -1` closes the pipe early, which is a SIGPIPE and therefore a
+# failure - that exact shape already took this script down once.
+available_version() {
+  local id ref json
+  id=$(docker compose ps -q app 2>/dev/null) || return 0
+  [ -n "$id" ] || return 0
+  ref=$(docker inspect "$id" --format '{{.Config.Image}}' 2>/dev/null) || return 0
+  [ -n "$ref" ] || return 0
+  json=$(timeout 8 docker buildx imagetools inspect "$ref" --format '{{json .Image}}' 2>/dev/null) || return 0
+  [ -n "$json" ] || return 0
+  awk -F'"' '/org.opencontainers.image.version/ { print $4; exit }' <<<"$json"
+}
+
 manage_update() {
   local before after
   before=$(running_version)
@@ -418,10 +437,16 @@ service_rows() {
 }
 
 manage_status() {
-  local origin
+  local origin now avail
   origin=$(grep -m1 '^APP_ORIGIN=' "${DIR}/.env" 2>/dev/null | cut -d= -f2- || true)
+  now=$(running_version)
+  avail=$(available_version || true)
   say ""
-  say "  ${CYAN}tmp${NC} $(running_version)${origin:+   ${GREEN}${origin}${NC}}"
+  if [ -n "$avail" ] && [ "$avail" != "$now" ]; then
+    say "  ${CYAN}tmp${NC} ${now}  ${YELLOW}${avail} available${NC}${origin:+   ${GREEN}${origin}${NC}}"
+  else
+    say "  ${CYAN}tmp${NC} ${now}${origin:+   ${GREEN}${origin}${NC}}"
+  fi
   rule
   service_rows
   if [ "${1:-}" != "embedded" ]; then
