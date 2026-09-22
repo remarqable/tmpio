@@ -111,7 +111,7 @@ cp config/local.env.example config/local.env
 # edit config/local.env: set SESSION_SECRET to at least 32 random characters
 #   openssl rand -base64 48
 
-make db-init      # creates a project-local PostgreSQL 16 cluster in data/pg16 on port 5433,
+make db      # creates a project-local PostgreSQL 16 cluster in data/pg16 on port 5433,
                   # roles app_owner and app_user (NOBYPASSRLS), databases tmp and tmp_test
 make migrate      # applies migrations as app_owner to tmp and tmp_test
 make run          # starts the server on http://localhost:8000
@@ -119,7 +119,7 @@ make run          # starts the server on http://localhost:8000
 
 Open http://localhost:8000. With `DEV_LOGIN_BYPASS=1` (the example default) the landing page shows a development sign-in form that accepts any email address. Signing in creates your user, organization, owner membership, `/`, `/index.md` and `/tmp.yaml` once. Repeat sign-ins create nothing.
 
-`make db-start` and `make db-stop` control the local cluster later. `make test` runs the full suite against `tmp_test`; `make check` runs the blueprint boundary grep. `scripts/e2e.sh` demonstrates the core proof against the running server (requires the `local-test` client in `OAUTH_CLIENTS_JSON`).
+`make db` and `make db-stop` control the local cluster later. `make test` runs the full suite against `tmp_test`; `make check` runs the blueprint boundary grep. `scripts/e2e.sh` demonstrates the core proof against the running server (requires the `local-test` client in `OAUTH_CLIENTS_JSON`).
 
 ## The core proof flow
 

@@ -10,7 +10,7 @@ Locally `app_owner` is the cluster superuser, so row security never applies to i
 
 | Task | Development | Production (systemd) |
 |---|---|---|
-| Start | `make db-start` then `make run` | `sudo systemctl start tmp` |
+| Start | `make db` then `make run` | `sudo systemctl start tmp` |
 | Stop | Ctrl-C, then `make db-stop` | `sudo systemctl stop tmp` |
 | Restart | stop and start | `sudo systemctl restart tmp` |
 | Logs | stdout (console format) | `journalctl -u tmp -f` (JSON lines) |
@@ -25,15 +25,15 @@ Migrations are goose SQL files in `migrations/`. They run as `app_owner`, never 
 
 ```bash
 make migrate                      # up on tmp and tmp_test
-make migrate-status               # goose status on tmp
+set -a && . ./config/local.env && set +a && goose -dir migrations postgres "$DATABASE_OWNER_URL" status
 goose -dir migrations postgres "$DATABASE_OWNER_URL" status
 ```
 
 Rollback is validated on the test database only:
 
 ```bash
-make migrate-down                 # goose down (one step) on tmp_test
-make db-reset                     # down-to 0 then up on tmp_test
+set -a && . ./config/local.env && set +a && goose -dir migrations postgres "$TEST_DATABASE_OWNER_URL" down
+set -a && . ./config/local.env && set +a && goose -dir migrations postgres "$TEST_DATABASE_OWNER_URL" down-to 0 && set -a && . ./config/local.env && set +a && goose -dir migrations postgres "$TEST_DATABASE_OWNER_URL" up
 ```
 
 To roll back production, take a backup first, stop the service, run `goose ... down` against `DATABASE_OWNER_URL`, and deploy the matching older binary. The three shipped migrations drop tables on down; data in those tables is lost.

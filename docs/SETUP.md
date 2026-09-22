@@ -29,13 +29,13 @@ Two databases exist: `tmp` (development data) and `tmp_test` (truncated by tests
 ### Option A: project-local cluster (macOS, Homebrew)
 
 ```bash
-make db-init
+make db
 ```
 
 This runs `initdb` into `data/pg16` with superuser `app_owner`, configures port `5433` and loopback listening, starts the server, sets the `app_owner` password to `app`, creates `app_user` with `NOBYPASSRLS`, creates `tmp` and `tmp_test`, and grants default privileges so `app_user` can use tables, sequences and functions that `app_owner` creates later. Logs go to `data/pg16.log`. `data/` is ignored by git.
 
 ```bash
-make db-start   # after a reboot
+make db   # after a reboot
 make db-stop
 ```
 
@@ -172,7 +172,7 @@ make run
 
 ```bash
 make test        # go test ./... -race -count=1 -p 1 with config/local.env exported
-make test-unit   # renderer, path grammar, tmp.yaml, principal and token tests; no database
+make test        # the full suite; there is no database-free subset target any more
 ```
 
 PostgreSQL-backed tests read `TEST_DATABASE_URL` and `TEST_DATABASE_OWNER_URL` and skip when they are unset. The helper `internal/platform/db/testdb.go` connects the runtime handle as `app_user` and truncates every table before a test through the owner handle. All packages share the one `tmp_test` database, which is why `make test` passes `-p 1` (one package at a time).
@@ -189,12 +189,12 @@ PostgreSQL-backed tests read `TEST_DATABASE_URL` and `TEST_DATABASE_OWNER_URL` a
 and token, leaving the schema and the instance settings row alone. The next
 sign-in then creates a fresh site with the welcome page, which is the quickest
 way to see what a new installation looks like. It asks for confirmation unless
-`FORCE=1`. `make db-reset` is the different, narrower thing: it rebuilds the
+`FORCE=1`. Rebuilding the test schema is the different, narrower thing: it rebuilds the
 *test* database schema.
 
 Scripts against a running dev server: `scripts/e2e.sh [origin]` runs the ten-step core proof and needs the `local-test` client from the `OAUTH_CLIENTS_JSON` example; `scripts/loadcheck.sh [origin] [pages]` seeds pages and measures latency; `scripts/screenshots.mjs` captures headless Chrome screenshots and needs Google Chrome on macOS and Node 22 or newer.
 
-`make migrate-down` and `make db-reset` act on the test database only.
+The goose commands in docs/RUNBOOK.md act on the test database only.
 
 ## Building the binary
 

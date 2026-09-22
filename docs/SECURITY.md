@@ -16,7 +16,7 @@ Guiding rules from the specification: URLs are identifiers, never credentials, e
 
 | Control | Implementation |
 |---|---|
-| Runtime role cannot bypass RLS | The server connects as `app_user`, created `LOGIN NOBYPASSRLS` (Makefile `db-init`). `app_owner` is used only by migrations, backups and tests. |
+| Runtime role cannot bypass RLS | The server connects as `app_user`, created `LOGIN NOBYPASSRLS` (Makefile `db`). `app_owner` is used only by migrations, backups and tests. |
 | Forced policies on every tenant table | `migrations/00002_content.sql`, `00003_credentials.sql`: `ENABLE` and `FORCE ROW LEVEL SECURITY` on membership, asset_blob, entry, revision, path_alias, audit_event, mutation_receipt, share_grant, share_grant_asset, api_token, oauth_grant, oauth_code, oauth_token. Each policy has both `USING` and `WITH CHECK` on `tenant_id = current_setting('app.tenant_id')`. |
 | Transaction-local tenant context | `db.WithTenant` sets `app.tenant_id` with `set_config(..., true)` inside a transaction (`internal/platform/db/db.go`). No tenant means zero rows, not all rows. |
 | Per-tenant advisory lock for mutations | `db.WithTenantSerialized` takes `pg_advisory_xact_lock(tenant_id)`. Every content mutation uses it, so path reservations and compare-and-swap checks cannot race within a tenant. |
