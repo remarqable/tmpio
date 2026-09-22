@@ -9,7 +9,12 @@ ENV?=config/local.env
 
 help: # this
 	@tty -s <&1 && { C=$$(printf '\033[36m'); D=$$(printf '\033[2m'); N=$$(printf '\033[0m'); } || { C=; D=; N=; }; \
-	printf '\n  tmp %s  %smake <target>%s\n' "$(RELEASE)" "$$D" "$$N"; \
+	if [ "$(AHEAD)" = 0 ]; then \
+	  printf '\n  tmp %s  %s(released; nothing to ship)%s\n' "$(RELEASE)" "$$D" "$$N"; \
+	else \
+	  printf '\n  tmp %s  %s+%s unreleased  ->  make release gives v%s%s\n' \
+	    "$(RELEASE)" "$$D" "$(AHEAD)" "$(NEXT)" "$$N"; \
+	fi; \
 	awk -v c="$$C" -v d="$$D" -v n="$$N" ' \
 	  match($$0, /^[a-zA-Z0-9_-]+:.*##@/) { \
 	    split($$0, a, ":.*##@"); split(a[2], b, " "); \
@@ -30,8 +35,7 @@ release: ##@Ship publish a version (bare = next patch; V=1.5 = next minor)
 	last=$$(git tag --list 'v[0-9]*' --sort=-v:refname | head -1); last=$${last#v}; \
 	if [ -z "$(V)" ]; then \
 	  test -n "$$last" || { echo "no releases yet, so there is nothing to bump: make release V=1.0.0"; exit 1; }; \
-	  maj=$${last%%.*}; rest=$${last#*.}; min=$${rest%%.*}; pat=$${rest#*.}; pat=$${pat%%-*}; \
-	  new="$$maj.$$min.$$((pat + 1))"; \
+	  new="$(NEXT)"; \
 	else \
 	  case "$(V)" in \
 	    v*)     echo "leave the v off: make release V=$${V#v}"; exit 1 ;; \
@@ -73,7 +77,12 @@ run: ##@Develop start the dev server
 	@set -a && . ./$(ENV) && set +a && go run -ldflags="$(LDFLAGS)" ./cmd/api
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
-RELEASE ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo unreleased)
+# What is released, how far the code has moved past it, and what a bare
+# `make release` would therefore publish. release uses NEXT too, so the number
+# the header promises is the number that gets tagged.
+RELEASE ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo none)
+AHEAD   ?= $(shell git rev-list --count $(RELEASE)..HEAD 2>/dev/null || echo 0)
+NEXT    ?= $(shell printf '%s' "$(RELEASE)" | awk -F. '/^v[0-9]/ { sub(/^v/, "", $$1); printf "%d.%d.%d", $$1, $$2, $$3 + 1 }')
 BUILD_DATE ?= $(shell date -u +%Y-%m-%d)
 LDFLAGS = -X github.com/remarqable/tmpio/internal/version.Version=$(VERSION) -X github.com/remarqable/tmpio/internal/version.Date=$(BUILD_DATE)
 
