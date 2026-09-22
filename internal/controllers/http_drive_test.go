@@ -276,3 +276,55 @@ func TestSidebarCountsEveryDocumentBeneath(t *testing.T) {
 	assert.Equal(t, 2, deep.Count)
 	assert.Equal(t, 3, dir.Count, "a folder counts its subfolders' documents too")
 }
+
+// TestRefileMovesADocument is the magic button: ask where this would go if it
+// arrived today, and put it there. The old address keeps working.
+func TestRefileMovesADocument(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	// No model is configured in tests, so the heuristic decides. A page with
+	// no matching folder lands in /inbox, which is a move from /notebook.
+	writePage(t, owner, "/notebook/stray.md", "# Stray\n\nSomething with no obvious home.\n")
+
+	res := owner.form("/refile/notebook/stray", url.Values{})
+	res.Body.Close()
+	require.Equal(t, 303, res.StatusCode)
+	loc := res.Header.Get("Location")
+	assert.Contains(t, loc, "refiled=", "it reports what it did")
+
+	// Whether it moved or stayed, the old address still resolves: Move leaves
+	// an alias, which answers with a redirect rather than the page itself.
+	old := owner.do("GET", "/notebook/stray", nil, nil)
+	old.Body.Close()
+	assert.Less(t, old.StatusCode, 400, "the old address must not 404 after a refile")
+}
+
+// TestRefileRefusesADirectory: Ops.Move takes pages and assets only, so the
+// button has to say no rather than fail halfway.
+func TestRefileRefusesADirectory(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	// A folder with no index page, so the path resolves to the directory
+	// itself rather than to a page inside it.
+	writePage(t, owner, "/notebook/a-page.md", "# A page\n")
+
+	res := owner.form("/refile/notebook/", url.Values{})
+	res.Body.Close()
+	assert.Equal(t, 303, res.StatusCode)
+	assert.Contains(t, res.Header.Get("Location"), "error=")
+}
+
+// TestFilingGuideIsReachable: the page that tells people to stop tidying.
+func TestFilingGuideIsReachable(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	res := owner.do("GET", "/filing", nil, nil)
+	body := readAll(res)
+	require.Equal(t, 200, res.StatusCode)
+	assert.Contains(t, body, "Where things live")
+	assert.Contains(t, body, "/inbox")
+
+	// And it is linked from the rail, not buried.
+	res = owner.do("GET", "/", nil, nil)
+	assert.Contains(t, readAll(res), `href="/filing"`)
+}

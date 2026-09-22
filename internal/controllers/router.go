@@ -112,9 +112,11 @@ func (d *Deps) SetupRouter(mcpHandler http.Handler) *gin.Engine {
 		ops.POST("/move/*rest", middleware.RateLimit(writeLimit, middleware.KeyByPrincipalOrIP), d.MoveEntry)
 		ops.POST("/delete/*rest", middleware.RateLimit(writeLimit, middleware.KeyByPrincipalOrIP), d.DeleteEntry)
 		ops.POST("/bulk", middleware.RateLimit(writeLimit, middleware.KeyByPrincipalOrIP), d.BulkEntry)
+		ops.POST("/refile/*rest", middleware.RateLimit(writeLimit, middleware.KeyByPrincipalOrIP), d.RefileEntry)
 		ops.GET("/trash", d.TrashPage)
 		ops.POST("/trash", middleware.RateLimit(writeLimit, middleware.KeyByPrincipalOrIP), d.TrashRestore)
 		ops.GET("/format", d.FormatGuide)
+		ops.GET("/filing", d.FilingGuide)
 	}
 
 	// Admin: account and site administration only.

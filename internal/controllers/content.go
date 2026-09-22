@@ -356,7 +356,7 @@ func (d *Deps) serveHTML(c *gin.Context, a *addr, rendered string) {
 	site.Breadcrumbs = titled(breadcrumbs(a.Prefix, e.Path, false), site.Page.Title)
 	site.CurrentHTML = a.Prefix + e.HTMLPath()
 	c.Header("ETag", etag(e))
-	d.render(c, http.StatusOK, "pages/site/page.html", "layout/site", gin.H{"Site": site, "Saved": c.Query("saved")})
+	d.render(c, http.StatusOK, "pages/site/page.html", "layout/site", gin.H{"Site": site, "Saved": c.Query("saved"), "Refiled": c.Query("refiled")})
 }
 
 func (d *Deps) siteSearch(c *gin.Context, a *addr, asJSON bool) {

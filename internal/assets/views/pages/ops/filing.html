@@ -1,0 +1,72 @@
+{{define "content"}}
+<article class="tmp-article">
+  <header class="tmp-article-header">
+    <h1>{{template "icon" "folder"}} Where things live</h1>
+    <p class="tmp-lead">Short version: don't worry about it.</p>
+  </header>
+  <div class="tmp-content">
+
+<p>When your AI saves something here, tmp reads it and picks a folder. It is
+right most of the time and wrong some of the time, and the wrong times matter
+far less than you think.</p>
+
+<p>At some point you will open the sidebar, find a lasagne recipe filed under
+<code>/business</code>, and feel something. Let it pass. Nothing is lost.
+Search will find it. The recipe does not taste different.</p>
+
+<h2>This site is mostly read by machines</h2>
+
+<p>That is the bit that makes the filing unimportant. When you ask your AI
+about something in here, it searches the text and reads the page. It does not
+walk the folder tree admiring your taxonomy. It never once thinks "ah, but is
+this really <em>business</em>?"</p>
+
+<p>Folders exist for one job: so that when <em>you</em> open the sidebar, you
+see nine things instead of four hundred. That is the whole job. Anything
+beyond that is you doing homework for an audience of nobody.</p>
+
+<h2>How it decides, if you are curious</h2>
+
+<p>There are five top-level folders and tmp will not invent a sixth:</p>
+
+<ul>
+  <li><code>/business</code> — work: clients, deals, meetings, your own products</li>
+  <li><code>/personal</code> — life: family, health, home, money, travel</li>
+  <li><code>/projects</code> — a named thing you are building or running</li>
+  <li><code>/research</code> — the outside world: other people's products, markets, papers</li>
+  <li><code>/inbox</code> — it genuinely could not tell</li>
+</ul>
+
+<p>Anything more specific goes one level down, named after the subject:
+<code>/business/acme</code>, <code>/personal/travel</code>,
+<code>/research/password-managers</code>. Three levels deep is the limit,
+because nobody has ever been glad of a fourth.</p>
+
+<p><code>/inbox</code> is not a failure. It is tmp admitting it does not know,
+which is better than a confident wrong answer. If things pile up there, it
+usually means you have a subject that deserves a folder and does not have one
+yet.</p>
+
+<h2>If a page is somewhere silly</h2>
+
+<p>Open it and press <strong>Find it a home</strong>. tmp looks at the page
+again, without seeing where it currently sits — otherwise it just agrees with
+itself — and moves it if it has a better idea. The old address keeps working,
+so nothing you have linked or shared breaks.</p>
+
+<p>If it is already in a reasonable place it will say so and leave it alone.</p>
+
+<h2>Things you do not need to do</h2>
+
+<ul>
+  <li>Design a folder structure before you start. It builds itself.</li>
+  <li>Tidy up on a Sunday. Nobody is coming to inspect it.</li>
+  <li>Move a document because it is <em>almost</em> in the right place.</li>
+  <li>Care about <code>/inbox</code> having things in it.</li>
+</ul>
+
+<p>Write things down. Ask your AI for them later. That is the product.</p>
+
+  </div>
+</article>
+{{end}}

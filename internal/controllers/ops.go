@@ -471,6 +471,17 @@ func (d *Deps) FormatGuide(c *gin.Context) {
 	d.render(c, http.StatusOK, "pages/ops/format.html", "layout/site", gin.H{"Site": sv, "Title": sv.Title})
 }
 
+// FilingGuide explains that the folders are a guide, not a filing system.
+func (d *Deps) FilingGuide(c *gin.Context) {
+	sv, _, err := d.ownerShell(c, "ops")
+	if err != nil {
+		d.fail(c, err)
+		return
+	}
+	sv.Title = i18n.T("en", "filing.title")
+	d.render(c, http.StatusOK, "pages/ops/filing.html", "layout/site", gin.H{"Site": sv, "Title": sv.Title})
+}
+
 // uuidV4 generates a random UUID string for browser-originated mutations.
 func uuidV4() string {
 	b := []byte(models.NewToken())[:16]
@@ -602,4 +613,52 @@ func (d *Deps) BulkEntry(c *gin.Context) {
 		return
 	}
 	c.Redirect(http.StatusSeeOther, back)
+}
+
+// RefileEntry asks where this document would go if it arrived today, and moves
+// it there (POST /refile/...). One document at a time and always a real move,
+// so there is nothing to review and nothing to undo in bulk: the old path keeps
+// redirecting and history records where it came from.
+func (d *Deps) RefileEntry(c *gin.Context) {
+	_, a, err := d.ownerShell(c, "ops")
+	if err != nil {
+		d.fail(c, err)
+		return
+	}
+	e, ok := d.opEntry(c, a)
+	if !ok {
+		return
+	}
+	if e.Kind != models.KindPage && e.Kind != models.KindFile {
+		d.flashFail(c, errors.New(errors.CodeValidationFailed, "only documents can be refiled"), e.HTMLPath())
+		return
+	}
+	doc, err := d.Ops.Read(c.Request.Context(), a.Prin, e.Path, 0)
+	if err != nil {
+		d.flashFail(c, err, e.HTMLPath())
+		return
+	}
+	pl, err := d.Ops.SuggestPlacement(c.Request.Context(), a.Prin, models.PlacementInput{
+		Content:  doc.Source,
+		Filename: e.Name(),
+		Refiling: e.Path,
+	})
+	if err != nil {
+		d.flashFail(c, err, e.HTMLPath())
+		return
+	}
+	to := pl.UniquePlacementPath()
+	if to == e.Path || parentDir(to) == parentDir(e.Path) {
+		// Already where it belongs. Say so rather than silently doing nothing.
+		c.Redirect(http.StatusSeeOther, e.HTMLPath()+"?refiled=kept")
+		return
+	}
+	res, err := d.Ops.Move(c.Request.Context(), a.Prin, models.MoveInput{
+		From: e.Path, To: to, ExpectedRevision: e.CurrentRevision, RequestID: uuidV4(),
+	})
+	if err != nil {
+		d.flashFail(c, err, e.HTMLPath())
+		return
+	}
+	c.Redirect(http.StatusSeeOther, res.Entry.HTMLPath+"?refiled="+url.QueryEscape(parentDir(e.Path)))
 }

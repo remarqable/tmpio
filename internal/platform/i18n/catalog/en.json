@@ -343,5 +343,11 @@
   "site.build": "Version and build date of this instance",
   "site.filter": "Filter pages…",
   "site.expand_all": "Expand all",
-  "site.collapse_all": "Collapse all"
+  "site.collapse_all": "Collapse all",
+  "refile.action": "Find it a home",
+  "refile.help": "Ask tmp where this would go if it arrived today, and move it there.",
+  "refile.kept": "Had a look. It is already where it belongs.",
+  "refile.moved": "Moved here from {from}. The old address still works.",
+  "filing.title": "Where things live",
+  "filing.link": "Where things live"
 }

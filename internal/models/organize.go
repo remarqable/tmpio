@@ -41,6 +41,13 @@ type PlacementInput struct {
 	Content  string // the document text (required)
 	Filename string // optional name hint, e.g. "q3-metrics.csv" or "notes"
 	Hint     string // optional free-text hint from the agent, e.g. "meeting notes for the mobile project"
+
+	// Refiling  is the path of a document already on the site that is being
+	// reconsidered. It is hidden from the tree the model sees, because a
+	// document sitting in /notebook is evidence that /notebook is where such
+	// things go, and asking whether it belongs there while it is still there
+	// mostly gets you a yes.
+	Refiling string
 }
 
 // Placer decides placements. Ops.AI is optional; without it only heuristics run.
@@ -71,6 +78,15 @@ func (o *Ops) SuggestPlacement(ctx context.Context, p Principal, in PlacementInp
 	entries, err := o.Tree(ctx, p.TenantID, false)
 	if err != nil {
 		return nil, err
+	}
+	if in.Refiling != "" {
+		kept := entries[:0]
+		for _, e := range entries {
+			if e.Path != in.Refiling {
+				kept = append(kept, e)
+			}
+		}
+		entries = kept
 	}
 	snap := snapshot(entries)
 	ext := placementExt(in.Filename, in.Content)
