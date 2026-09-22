@@ -552,16 +552,49 @@ func (d *Deps) BulkEntry(c *gin.Context) {
 	}
 	back := dirHTML(strings.TrimSpace(c.PostForm("dir")))
 	paths := c.PostFormArray("path")
-	if len(paths) == 0 {
-		c.Redirect(http.StatusSeeOther, back)
-		return
-	}
 	revs := c.PostFormMap("rev")
 	action := c.PostForm("action")
+
+	// Refiling needs the entries themselves, and "tidy this folder" needs to
+	// know what is in the folder, so read the tree once for both.
+	byPath := map[string]*models.Entry{}
+	if action == "refile" || action == "refile-all" {
+		entries, err := d.Ops.Tree(c.Request.Context(), a.Tenant.ID, false)
+		if err != nil {
+			d.fail(c, err)
+			return
+		}
+		for i := range entries {
+			byPath[entries[i].Path] = &entries[i]
+		}
+		if action == "refile-all" {
+			action = "refile"
+			dir := strings.TrimSuffix(strings.TrimSpace(c.PostForm("dir")), "/")
+			paths = nil
+			for i := range entries {
+				e := &entries[i]
+				if (e.Kind == models.KindPage || e.Kind == models.KindFile) &&
+					parentDir(e.Path) == dir && !e.IsIndexPage() {
+					paths = append(paths, e.Path)
+				}
+			}
+			if len(paths) == 0 {
+				c.Redirect(http.StatusSeeOther, back)
+				return
+			}
+		}
+	}
 	to := strings.TrimSpace(c.PostForm("to"))
 	// "travel" and "/travel" mean the same thing to anyone typing in a hurry.
 	if to != "" && !strings.HasPrefix(to, "/") {
 		to = "/" + to
+	}
+
+	// Checked here rather than on the way in: "tidy this folder" posts no rows
+	// and fills them in above.
+	if len(paths) == 0 {
+		c.Redirect(http.StatusSeeOther, back)
+		return
 	}
 
 	// Deepest first, so selecting a folder and its contents still empties the
@@ -576,7 +609,7 @@ func (d *Deps) BulkEntry(c *gin.Context) {
 
 	var failed []string
 	var firstErr error
-	done := 0
+	done, kept := 0, 0
 	for _, p := range sorted {
 		rev, _ := strconv.ParseInt(revs[p], 10, 64)
 		var e error
@@ -592,6 +625,21 @@ func (d *Deps) BulkEntry(c *gin.Context) {
 			}()
 		case "delete":
 			_, e = d.Ops.Delete(c.Request.Context(), a.Prin, p, rev, uuidV4())
+		case "refile":
+			e = func() error {
+				ent, ok := byPath[p]
+				if !ok {
+					return errors.New(errors.CodeNotFound, "no such document")
+				}
+				moved, err := d.refileOne(c, a, ent)
+				if err != nil {
+					return err
+				}
+				if moved == "" {
+					kept++
+				}
+				return nil
+			}()
 		default:
 			d.flashFail(c, errors.New(errors.CodeValidationFailed, "unknown bulk action"), back)
 			return
@@ -612,7 +660,42 @@ func (d *Deps) BulkEntry(c *gin.Context) {
 		c.Redirect(http.StatusSeeOther, back+"?error="+url.QueryEscape(msg))
 		return
 	}
+	if action == "refile" {
+		c.Redirect(http.StatusSeeOther, fmt.Sprintf("%s?tidied=%d&kept=%d", back, done-kept, kept))
+		return
+	}
 	c.Redirect(http.StatusSeeOther, back)
+}
+
+// refileOne asks where a document would go if it arrived today and moves it
+// there. Returns the new path, or "" when it is already where it belongs.
+func (d *Deps) refileOne(c *gin.Context, a *addr, e *models.Entry) (string, error) {
+	if e.Kind != models.KindPage && e.Kind != models.KindFile {
+		return "", errors.New(errors.CodeValidationFailed, "only documents can be refiled")
+	}
+	doc, err := d.Ops.Read(c.Request.Context(), a.Prin, e.Path, 0)
+	if err != nil {
+		return "", err
+	}
+	pl, err := d.Ops.SuggestPlacement(c.Request.Context(), a.Prin, models.PlacementInput{
+		Content:  doc.Source,
+		Filename: e.Name(),
+		Refiling: e.Path,
+	})
+	if err != nil {
+		return "", err
+	}
+	to := pl.UniquePlacementPath()
+	if to == e.Path || parentDir(to) == parentDir(e.Path) {
+		return "", nil
+	}
+	res, err := d.Ops.Move(c.Request.Context(), a.Prin, models.MoveInput{
+		From: e.Path, To: to, ExpectedRevision: e.CurrentRevision, RequestID: uuidV4(),
+	})
+	if err != nil {
+		return "", err
+	}
+	return res.Entry.Path, nil
 }
 
 // RefileEntry asks where this document would go if it arrived today, and moves
@@ -629,36 +712,15 @@ func (d *Deps) RefileEntry(c *gin.Context) {
 	if !ok {
 		return
 	}
-	if e.Kind != models.KindPage && e.Kind != models.KindFile {
-		d.flashFail(c, errors.New(errors.CodeValidationFailed, "only documents can be refiled"), e.HTMLPath())
-		return
-	}
-	doc, err := d.Ops.Read(c.Request.Context(), a.Prin, e.Path, 0)
+	from := parentDir(e.Path)
+	moved, err := d.refileOne(c, a, e)
 	if err != nil {
 		d.flashFail(c, err, e.HTMLPath())
 		return
 	}
-	pl, err := d.Ops.SuggestPlacement(c.Request.Context(), a.Prin, models.PlacementInput{
-		Content:  doc.Source,
-		Filename: e.Name(),
-		Refiling: e.Path,
-	})
-	if err != nil {
-		d.flashFail(c, err, e.HTMLPath())
-		return
-	}
-	to := pl.UniquePlacementPath()
-	if to == e.Path || parentDir(to) == parentDir(e.Path) {
-		// Already where it belongs. Say so rather than silently doing nothing.
+	if moved == "" {
 		c.Redirect(http.StatusSeeOther, e.HTMLPath()+"?refiled=kept")
 		return
 	}
-	res, err := d.Ops.Move(c.Request.Context(), a.Prin, models.MoveInput{
-		From: e.Path, To: to, ExpectedRevision: e.CurrentRevision, RequestID: uuidV4(),
-	})
-	if err != nil {
-		d.flashFail(c, err, e.HTMLPath())
-		return
-	}
-	c.Redirect(http.StatusSeeOther, res.Entry.HTMLPath+"?refiled="+url.QueryEscape(parentDir(e.Path)))
+	c.Redirect(http.StatusSeeOther, (&models.Entry{Kind: e.Kind, Path: moved}).HTMLPath()+"?refiled="+url.QueryEscape(from))
 }

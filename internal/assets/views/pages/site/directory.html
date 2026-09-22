@@ -1,6 +1,7 @@
 {{define "content"}}
 {{if .Site.Breadcrumbs}}<nav class="tmp-crumbs" aria-label="{{t "site.breadcrumb"}}"><ol>{{range .Site.Breadcrumbs}}<li>{{if .Last}}<span aria-current="page">{{.Title}}</span>{{else}}<a href="{{.URL}}">{{.Title}}</a>{{end}}</li>{{end}}</ol></nav>{{end}}
 {{if .Error}}<div class="tmp-callout tmp-callout-important" role="alert"><div class="tmp-callout-body">{{.Error}}</div></div>{{end}}
+{{if .Tidied}}<div class="tmp-callout tmp-callout-tip" role="status"><div class="tmp-callout-body">{{t "refile.tidied" "moved" .Tidied "kept" .Kept}}</div></div>{{end}}
 {{$dir := .Site.Directory.Path}}
 {{$at := printf "%s/" $dir}}{{if eq $dir "/"}}{{$at = "/"}}{{end}}
 <article class="tmp-article tmp-article-drive">
@@ -11,6 +12,7 @@
       <a class="tmp-btn" href="/new{{$at}}">{{template "icon" "file-plus"}} {{t "content.new_page"}}</a>
       <a class="tmp-btn tmp-btn-secondary" href="/new{{$at}}?kind=folder">{{template "icon" "folder-plus"}} {{t "content.new_folder"}}</a>
       <a class="tmp-btn tmp-btn-secondary" href="/new{{$at}}?kind=image">{{template "icon" "upload"}} {{t "content.upload"}}</a>
+      <form method="post" action="/bulk" class="tmp-inline-form" data-confirm="{{t "refile.folder_confirm"}}"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="dir" value="{{$dir}}"><input type="hidden" name="action" value="refile-all"><button class="tmp-btn tmp-btn-secondary" title="{{t "refile.folder_help"}}">{{template "icon" "sparkle"}} {{t "refile.folder"}}</button></form>
       {{if ne $dir "/"}}<a class="tmp-btn tmp-btn-secondary" href="/history{{.Site.Directory.HTMLPath}}">{{template "icon" "history"}} {{t "content.history"}}</a>
       <form method="post" action="/delete{{.Site.Directory.HTMLPath}}" data-confirm="{{t "content.delete_confirm"}}" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="expected_revision" value="{{.Site.Directory.CurrentRevision}}"><button class="tmp-btn tmp-btn-danger">{{template "icon" "trash"}} {{t "content.delete"}}</button></form>{{end}}
     </div>
@@ -35,6 +37,7 @@
           <datalist id="tmp-folders">{{range .Site.Folders}}<option value="{{.}}"></option>{{end}}</datalist>
         </label>
         <button type="submit" class="tmp-btn tmp-btn-secondary" data-drive-move>{{template "icon" "folder"}} {{t "drive.move"}}</button>
+        <button type="submit" class="tmp-btn tmp-btn-secondary" data-drive-refile>{{template "icon" "sparkle"}} {{t "refile.action"}}</button>
         <button type="submit" class="tmp-btn tmp-btn-danger" data-drive-delete>{{template "icon" "trash"}} {{t "content.delete"}}</button>
         <button type="button" class="tmp-linkbtn" data-drive-clear>{{t "drive.clear"}}</button>
       </span>

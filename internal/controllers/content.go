@@ -316,7 +316,7 @@ func (d *Deps) serveHTML(c *gin.Context, a *addr, rendered string) {
 		site.Folders = folderPaths(site.Sidebar)
 		site.Breadcrumbs = titled(breadcrumbs(a.Prefix, res.Directory.Path, true), res.Directory.Title)
 		site.CurrentHTML = a.Prefix + res.Directory.HTMLPath()
-		data := gin.H{"Site": site, "Error": c.Query("error")}
+		data := gin.H{"Site": site, "Error": c.Query("error"), "Tidied": c.Query("tidied"), "Kept": c.Query("kept")}
 		if site.IsOwner {
 			children, _ := d.Ops.Children(ctx, a.Tenant.ID, res.Directory.ID)
 			var assets []models.Entry

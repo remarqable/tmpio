@@ -113,6 +113,11 @@
     if (actionEl) actionEl.value = 'move';
     form.removeAttribute('data-confirm');
   });
+  var refileBtn = form.querySelector('[data-drive-refile]');
+  if (refileBtn) refileBtn.addEventListener('click', function () {
+    if (actionEl) actionEl.value = 'refile';
+    form.removeAttribute('data-confirm');
+  });
   if (delBtn) delBtn.addEventListener('click', function () {
     if (actionEl) actionEl.value = 'delete';
     form.setAttribute('data-confirm', form.getAttribute('data-delete-confirm') || 'Delete the selected items?');

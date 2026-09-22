@@ -328,3 +328,36 @@ func TestFilingGuideIsReachable(t *testing.T) {
 	res = owner.do("GET", "/", nil, nil)
 	assert.Contains(t, readAll(res), `href="/filing"`)
 }
+
+// TestTidyFolderRefilesEveryDocument is the folder-level button: look at each
+// document in a folder and move the ones that belong elsewhere.
+func TestTidyFolderRefilesEveryDocument(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	writePage(t, owner, "/notebook/one.md", "# One\n\nSomething.\n")
+	writePage(t, owner, "/notebook/two.md", "# Two\n\nSomething else.\n")
+
+	res := owner.form("/bulk", url.Values{"dir": {"/notebook"}, "action": {"refile-all"}})
+	res.Body.Close()
+	require.Equal(t, 303, res.StatusCode)
+	loc := res.Header.Get("Location")
+	assert.Contains(t, loc, "tidied=", "it reports how many it moved")
+	assert.Contains(t, loc, "kept=", "and how many it left alone")
+
+	// Both are still reachable wherever they ended up: Move leaves an alias.
+	for _, p := range []string{"/notebook/one", "/notebook/two"} {
+		r := owner.do("GET", p, nil, nil)
+		r.Body.Close()
+		assert.Less(t, r.StatusCode, 400, p+" must not 404 after a tidy-up")
+	}
+}
+
+// TestTidyEmptyFolderDoesNothing: no documents, no calls, no error.
+func TestTidyEmptyFolderDoesNothing(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	res := owner.form("/bulk", url.Values{"dir": {"/nothing-here"}, "action": {"refile-all"}})
+	res.Body.Close()
+	require.Equal(t, 303, res.StatusCode)
+	assert.NotContains(t, res.Header.Get("Location"), "error=")
+}
