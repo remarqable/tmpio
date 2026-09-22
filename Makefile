@@ -148,7 +148,7 @@ reset: ##@Database empty the dev database
 check: ##@Check boundary and installer checks
 	@! grep -rn "db.Unscoped()" internal/controllers internal/models internal/mcp || { echo "owner connection used in request code"; exit 1; }
 	@! grep -rln "db.EnterTenantScope(" internal | grep -v "internal/models/user.go\|internal/platform/db/" || { echo "EnterTenantScope is for tenant provisioning only"; exit 1; }
-	@! grep -rln "lookup_share_grant\|lookup_api_token\|lookup_oauth_token\|lookup_oauth_code" internal | grep -v "internal/models/credentials.go\|internal/models/share.go" || { echo "SECURITY DEFINER lookups may only be called from the credential models"; exit 1; }
+	@! grep -rln "lookup_share_grant\|lookup_api_token\|lookup_oauth_token\|lookup_oauth_code\|lookup_invite\|accept_invite" internal | grep -v "internal/models/credentials.go\|internal/models/share.go\|internal/models/members.go" || { echo "SECURITY DEFINER lookups may only be called from the credential models"; exit 1; }
 	@! grep -rn "db\.Get()\|db\.WithTenant\|gorm\.DB" internal/controllers internal/mcp --include=*.go | grep -v _test.go || { echo "database access outside models"; exit 1; }
 	@echo "boundary checks passed"
 	@bash install.sh --print-compose | diff -u docker-compose.yml - >/dev/null && echo "installer compose matches"

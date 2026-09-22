@@ -26,6 +26,33 @@ const (
 // AllScopes lists the supported scopes in canonical order.
 var AllScopes = []string{ScopeRead, ScopeWrite, ScopeDelete}
 
+// Roles, and what each may do. They map onto the scopes every handler already
+// checks, so a role is enforced by the same code that enforces an API token's
+// scopes rather than by a second set of rules that could disagree with it.
+const (
+	RoleOwner  = "owner"  // content, plus the organization itself
+	RoleEditor = "editor" // content
+	RoleViewer = "viewer" // reading
+)
+
+// RoleScopes is what a member of this role may do with content. An unknown
+// role gets nothing: a row that does not match a role we know about should
+// fail closed, not open.
+func RoleScopes(role string) []string {
+	switch role {
+	case RoleOwner, RoleEditor:
+		return AllScopes
+	case RoleViewer:
+		return []string{ScopeRead}
+	default:
+		return nil
+	}
+}
+
+// RoleAdmin reports whether a role may change the organization itself: its
+// members, its settings, its existence. Editors and viewers may not.
+func RoleAdmin(role string) bool { return role == RoleOwner }
+
 // Principal is the authenticated actor for one request. It binds tenant,
 // user, client and scope set; a share principal is additionally bound to one entry.
 type Principal struct {
@@ -40,14 +67,16 @@ type Principal struct {
 	ClientName   string
 	ShareGrantID int64
 	ShareEntryID int64
+	Role         string // the member's role, for owner-session principals
 	AuthorName   string // unverified display name supplied by an anonymous editor
 }
 
-// Can reports whether the principal holds a scope. Owners hold every scope.
+// Can reports whether the principal holds a scope.
+// A browser session used to short-circuit this: a session meant the sole owner
+// of the organization, so it could do anything. With roles it cannot, because
+// a viewer holds a session too and must not inherit write and delete from the
+// kind of credential they signed in with.
 func (p Principal) Can(scope string) bool {
-	if p.Kind == PrincipalOwner {
-		return true
-	}
 	for _, s := range p.Scopes {
 		if s == scope {
 			return true

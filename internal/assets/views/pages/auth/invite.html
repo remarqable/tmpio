@@ -1,0 +1,20 @@
+{{define "content"}}
+<div class="tmp-auth-card">
+  <h1 class="tmp-auth-title">{{t "invite.title"}}</h1>
+  {{if .Invite.Valid}}
+    <p class="tmp-auth-lead">{{t "invite.lead" "role" .Invite.Role}}</p>
+    {{if .SignedIn}}
+      <p class="tmp-auth-note">{{t "invite.as" "email" .You}}</p>
+      <form method="post" action="/invite/{{.Token}}/accept">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <button class="tmp-btn tmp-auth-submit">{{t "invite.accept"}}</button>
+      </form>
+    {{else}}
+      <p class="tmp-auth-note">{{t "invite.sign_in_first"}}</p>
+      <a class="tmp-btn tmp-auth-submit" href="/login?return=/invite/{{.Token}}">{{t "landing.cta"}}</a>
+    {{end}}
+  {{else}}
+    <p class="tmp-auth-lead">{{t "invite.invalid"}}</p>
+  {{end}}
+</div>
+{{end}}

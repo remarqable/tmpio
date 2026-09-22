@@ -24,6 +24,7 @@ const (
 	KeySession   = "session"
 	KeyUser      = "user"
 	KeyTenant    = "tenant"
+	KeyRole      = "role"
 	KeyBearer    = "bearer_present"
 )
 
@@ -131,15 +132,32 @@ func Session() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		t, err := models.TenantForUser(ctx, u.ID)
+		// The role comes from the membership, read on every request. A session
+		// that was an owner yesterday is a viewer today if someone changed it,
+		// and is nothing at all if they were removed.
+		//
+		// The organization is the one this session chose, when the membership
+		// backing that choice still exists; otherwise the oldest.
+		var prefer int64
+		if s.ActingTenantID != nil {
+			prefer = *s.ActingTenantID
+		}
+		t, role, err := models.TenantForUser(ctx, u.ID, prefer)
 		if err != nil {
+			c.Next()
+			return
+		}
+		scopes := models.RoleScopes(role)
+		if len(scopes) == 0 {
+			// A role we do not recognise grants nothing rather than everything.
 			c.Next()
 			return
 		}
 		c.Set(KeySession, s)
 		c.Set(KeyUser, u)
 		c.Set(KeyTenant, t)
-		c.Set(KeyPrincipal, models.Principal{Kind: models.PrincipalOwner, TenantID: t.ID, UserID: u.ID, SessionID: s.ID, Scopes: models.AllScopes})
+		c.Set(KeyRole, role)
+		c.Set(KeyPrincipal, models.Principal{Kind: models.PrincipalOwner, TenantID: t.ID, UserID: u.ID, SessionID: s.ID, Scopes: scopes, Role: role})
 		tr := obs.Get(ctx)
 		tr.TenantID, tr.UserID = t.ID, u.ID
 		c.Request = c.Request.WithContext(obs.With(ctx, tr))

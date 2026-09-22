@@ -30,6 +30,7 @@ func adminNav(active string, instanceAdmin bool) []NavLink {
 	items := []NavLink{
 		{Key: "overview", Title: i18n.T("en", "admin.overview"), URL: "/admin", Icon: "home"},
 		{Key: "connections", Title: i18n.T("en", "nav.connections"), URL: "/admin/connections", Icon: "plug"},
+		{Key: "members", Title: i18n.T("en", "members.title"), URL: "/admin/members", Icon: "plus"},
 		{Key: "links", Title: i18n.T("en", "admin.links"), URL: "/admin/links", Icon: "link"},
 		{Key: "settings", Title: i18n.T("en", "nav.settings"), URL: "/admin/settings", Icon: "settings"},
 		{Key: "export", Title: i18n.T("en", "nav.export"), URL: "/admin/export", Icon: "export"},

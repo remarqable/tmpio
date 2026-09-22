@@ -646,7 +646,8 @@ func linkResolver(tx *gorm.DB) func(string) bool {
 
 // initialFilesystem creates /, /tmp.yaml and /index.md for a new tenant.
 func initialFilesystem(tx *gorm.DB, tenantID, userID int64, cfgSrc, indexSrc string) error {
-	p := Principal{Kind: PrincipalOwner, TenantID: tenantID, UserID: userID}
+	// Creating a new organization's first files, on behalf of its owner.
+	p := Principal{Kind: PrincipalOwner, TenantID: tenantID, UserID: userID, Scopes: AllScopes, Role: RoleOwner}
 	o := &Ops{Quotas: config.Quotas{MaxPages: 10, MaxDirectories: 10, MaxPageBytes: 1 << 20, MaxConfigBytes: 1 << 16, MaxRetainedBytes: 1 << 30}}
 	rootID, err := o.ensureParents(tx, p, "/", "")
 	if err != nil {

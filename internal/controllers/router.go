@@ -79,6 +79,8 @@ func (d *Deps) SetupRouter(mcpHandler http.Handler) *gin.Engine {
 	// because this is the one route where guessing a secret is the attack.
 	r.POST("/auth/local", middleware.RateLimit(ratelimit.New(10), middleware.KeyByIP), d.LocalLogin)
 	r.POST("/logout", middleware.CSRF(d.Cfg), d.Logout)
+	r.GET("/invite/:token", d.InvitePage)
+	r.POST("/invite/:token/accept", middleware.CSRF(d.Cfg), d.InviteAccept)
 
 	// OAuth authorization server for AI clients
 	r.GET("/.well-known/oauth-authorization-server", d.ASMetadata)
@@ -131,6 +133,11 @@ func (d *Deps) SetupRouter(mcpHandler http.Handler) *gin.Engine {
 		admin.GET("/links", d.AdminLinks)
 		admin.POST("/links/revoke", d.AdminLinkRevoke)
 		admin.GET("/settings", d.AdminSettings)
+		admin.GET("/members", d.AdminMembers)
+		admin.POST("/members/invite", d.AdminInvite)
+		admin.POST("/members/invite/revoke", d.AdminInviteRevoke)
+		admin.POST("/members/role", d.AdminMemberRole)
+		admin.POST("/members/remove", d.AdminMemberRemove)
 		admin.POST("/settings/org", d.AdminSettingsOrg)
 		admin.POST("/settings/ai", d.AdminSettingsAI)
 		admin.POST("/settings/delete-account", middleware.RateLimit(ratelimit.New(5), middleware.KeyByPrincipalOrIP), d.AdminDeleteAccount)

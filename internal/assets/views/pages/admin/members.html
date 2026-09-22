@@ -1,0 +1,53 @@
+{{define "content"}}
+{{if .Error}}<div class="tmp-callout tmp-callout-important" role="alert"><div class="tmp-callout-body">{{.Error}}</div></div>{{end}}
+{{if .InviteURL}}<div class="tmp-callout tmp-callout-tip" role="status"><div class="tmp-callout-body">
+  <p class="mb-1">{{t "members.invite_link"}}</p>
+  <div class="input-group"><input class="tmp-input" value="{{.InviteURL}}" readonly onclick="this.select()"><button class="tmp-btn tmp-btn-secondary" type="button" data-copy-btn="{{.InviteURL}}">{{template "icon" "copy"}} {{t "common.copy"}}</button></div>
+</div></div>{{end}}
+
+<div class="card mb-3"><table class="table align-middle mb-0 tmp-stack-sm">
+<thead><tr><th>{{t "members.title"}}</th><th>{{t "members.role"}}</th><th></th></tr></thead>
+<tbody>
+{{range .Members}}<tr>
+  <td>{{if .DisplayName}}{{.DisplayName}}<div class="small tmp-muted">{{.Email}}</div>{{else}}{{.Email}}{{end}}{{if .IsYou}} <span class="badge text-bg-secondary">{{t "members.you"}}</span>{{end}}</td>
+  <td>
+    {{if $.IsOwner}}
+    <form method="post" action="/admin/members/role" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="user_id" value="{{.UserID}}">
+      <select class="tmp-input tmp-input-sm" name="role" onchange="this.form.submit()">
+        {{$r := .Role}}{{range $.Roles}}<option value="{{.}}" {{if eq . $r}}selected{{end}}>{{.}}</option>{{end}}
+      </select>
+    </form>
+    {{else}}{{.Role}}{{end}}
+  </td>
+  <td class="text-end">
+    {{if and $.IsOwner (not .IsYou)}}
+    <form method="post" action="/admin/members/remove" data-confirm="{{t "members.remove_confirm"}}" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="user_id" value="{{.UserID}}"><button class="tmp-btn tmp-btn-danger tmp-btn-sm">{{t "members.remove"}}</button></form>
+    {{end}}
+  </td>
+</tr>{{end}}
+</tbody></table></div>
+
+{{if .IsOwner}}
+{{if .Invites}}<div class="card mb-3"><div class="card-header">{{t "members.pending"}}</div>
+<ul class="list-group list-group-flush">
+{{range .Invites}}<li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+  <span>{{.Email}} <span class="badge text-bg-secondary">{{.Role}}</span>{{if .Expired}} <span class="small tmp-muted">expired</span>{{end}}</span>
+  <form method="post" action="/admin/members/invite/revoke" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="id" value="{{.ID}}"><button class="tmp-linkbtn">{{t "share.revoke"}}</button></form>
+</li>{{end}}
+</ul></div>{{end}}
+
+<div class="card"><div class="card-body">
+  <h2 class="h6">{{t "members.invite"}}</h2>
+  <form method="post" action="/admin/members/invite">
+    <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+    <div class="tmp-dialog-row">
+      <div><label class="tmp-label" for="inv-email">Email</label><input class="tmp-input" id="inv-email" name="email" type="email" required placeholder="them@example.com"></div>
+      <div><label class="tmp-label" for="inv-role">{{t "members.role"}}</label>
+        <select class="tmp-input" id="inv-role" name="role">{{range .Roles}}<option value="{{.}}">{{.}}</option>{{end}}</select></div>
+    </div>
+    <button class="tmp-btn mt-2">{{template "icon" "plus"}} {{t "members.invite_cta"}}</button>
+  </form>
+  <p class="small tmp-muted mt-2 mb-0">{{t "members.role_owner"}}<br>{{t "members.role_editor"}}<br>{{t "members.role_viewer"}}</p>
+</div></div>
+{{end}}
+{{end}}

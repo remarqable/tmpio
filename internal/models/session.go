@@ -24,6 +24,25 @@ type Session struct {
 	LastSeenAt time.Time
 	ExpiresAt  time.Time
 	RevokedAt  *time.Time
+	// ActingTenantID is the organization this session is working in. Nil means
+	// "the oldest membership", which is everyone who belongs to exactly one.
+	ActingTenantID *int64 `gorm:"column:acting_tenant_id"`
+}
+
+// ActInTenant points a session at an organization, after checking the user is
+// a member of it. The check is here rather than at the caller so no handler
+// can set it from a form value.
+func ActInTenant(ctx context.Context, sessionID, userID, tenantID int64) error {
+	return db.WithTx(ctx, func(tx *gorm.DB) error {
+		if err := db.SetUserScope(tx, userID); err != nil {
+			return err
+		}
+		var m Membership
+		if err := tx.Where("user_id = ? AND tenant_id = ?", userID, tenantID).First(&m).Error; err != nil {
+			return errors.New(errors.CodeForbidden, "not a member of that organization")
+		}
+		return tx.Model(&Session{}).Where("id = ?", sessionID).Update("acting_tenant_id", tenantID).Error
+	})
 }
 
 // TableName follows the singular naming convention.

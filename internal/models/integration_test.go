@@ -137,7 +137,7 @@ func TestSignupCreatesSiteExactlyOnce(t *testing.T) {
 	assert.Error(t, err, "unverified email rejected")
 
 	o := testOps()
-	p := Principal{Kind: PrincipalOwner, TenantID: t1.ID, UserID: u1.ID}
+	p := Principal{Kind: PrincipalOwner, TenantID: t1.ID, UserID: u1.ID, Scopes: AllScopes, Role: RoleOwner}
 	for _, path := range []string{"/", "/tmp.yaml", "/index.md"} {
 		doc, err := o.Read(ctx, p, path, 0)
 		require.NoError(t, err, path)

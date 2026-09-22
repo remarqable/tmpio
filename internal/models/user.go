@@ -132,7 +132,7 @@ func SignIn(ctx context.Context, ext ExternalIdentity, initialConfig string, ini
 					return err
 				}
 			}
-			t, err := currentTenantForUser(tx, user.ID)
+			t, _, err := currentTenantForUser(tx, user.ID, 0)
 			if err != nil {
 				return err
 			}
@@ -200,33 +200,52 @@ func createTenantWithOwner(tx *gorm.DB, userID int64, initialConfig, initialInde
 	return &tenant, nil
 }
 
-func currentTenantForUser(tx *gorm.DB, userID int64) (*Tenant, error) {
+// currentTenantForUser picks the organization a session acts in: the one it
+// last chose, when that choice is still backed by a membership, and otherwise
+// the oldest. The membership is re-read every time rather than trusted from
+// the session, so removing someone takes effect on their next request.
+func currentTenantForUser(tx *gorm.DB, userID, preferTenantID int64) (*Tenant, string, error) {
 	if err := db.SetUserScope(tx, userID); err != nil {
-		return nil, err
+		return nil, "", err
 	}
 	var m Membership
-	if err := tx.Where("user_id = ?", userID).Order("id").First(&m).Error; err != nil {
-		if goerrors.Is(err, gorm.ErrRecordNotFound) {
-			return nil, errors.New(errors.CodeUnauthorized, "no organization membership")
+	if preferTenantID != 0 {
+		// A separate query rather than a reused builder: GORM accumulates
+		// conditions on a statement, and a chosen organization silently
+		// falling back to the oldest is a role escalation, not a nuisance.
+		err := tx.Where("user_id = ? AND tenant_id = ?", userID, preferTenantID).First(&m).Error
+		if err != nil && !goerrors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, "", err
 		}
-		return nil, err
+		if err != nil {
+			m = Membership{} // not a member there any more; fall back
+		}
+	}
+	if m.ID == 0 {
+		if err := tx.Where("user_id = ?", userID).Order("id").First(&m).Error; err != nil {
+			if goerrors.Is(err, gorm.ErrRecordNotFound) {
+				return nil, "", errors.New(errors.CodeUnauthorized, "no organization membership")
+			}
+			return nil, "", err
+		}
 	}
 	var t Tenant
 	if err := tx.First(&t, m.TenantID).Error; err != nil {
-		return nil, err
+		return nil, "", err
 	}
-	return &t, nil
+	return &t, m.Role, nil
 }
 
 // TenantForUser returns the user's current (sole) organization.
-func TenantForUser(ctx context.Context, userID int64) (*Tenant, error) {
+func TenantForUser(ctx context.Context, userID, preferTenantID int64) (*Tenant, string, error) {
 	var t *Tenant
+	var role string
 	err := db.WithTx(ctx, func(tx *gorm.DB) error {
 		var err error
-		t, err = currentTenantForUser(tx, userID)
+		t, role, err = currentTenantForUser(tx, userID, preferTenantID)
 		return err
 	})
-	return t, err
+	return t, role, err
 }
 
 // GetUser loads a user by ID.
