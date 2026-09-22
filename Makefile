@@ -23,7 +23,22 @@ help: # this
 	  }' $(MAKEFILE_LIST); \
 	printf '\n  %sHOST=root@example.com make update%s\n\n' "$$D" "$$N"
 
-.PHONY: help installer-smoke update reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
+.PHONY: help release installer-smoke update reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
+
+release: ##@Ship publish a version (make release V=1.4.1)
+	@test -n "$(V)" || { echo "usage: make release V=1.4.1"; exit 1; }
+	@case "$(V)" in v*) echo "leave the v off: make release V=$${V#v}"; exit 1 ;; esac
+	@git diff --quiet && git diff --cached --quiet || { echo "working tree is dirty; commit first"; exit 1; }
+	@test -z "$$(git log origin/main..HEAD --oneline)" || { echo "unpushed commits; git push first"; exit 1; }
+	@git rev-parse -q --verify "refs/tags/v$(V)" >/dev/null && { echo "v$(V) already exists"; exit 1; } || true
+	@printf 'tagging v%s at %s\n' "$(V)" "$$(git rev-parse --short HEAD)"
+	@git tag -a "v$(V)" -m "v$(V)" && git push -q origin "v$(V)"
+	@echo "pushed. building the image (arm64 is emulated, so this takes a while)…"
+	@until [ "$$(gh run list --workflow release --branch v$(V) --limit 1 --json status --jq '.[0].status' 2>/dev/null)" = completed ]; do sleep 20; done; \
+	 r=$$(gh run list --workflow release --branch v$(V) --limit 1 --json conclusion --jq '.[0].conclusion'); \
+	 if [ "$$r" = success ]; then echo "ghcr.io/remarqable/tmpio:$(V) published, and :1 now points at it"; \
+	   echo "deploy it:  make update"; \
+	 else echo "the build did not succeed: $$r"; exit 1; fi
 
 update: ##@Ship update a host to the current release
 	@scp -q install.sh $${HOST:-root@tmp.io}:/opt/tmp/install.sh
