@@ -9,7 +9,7 @@ ENV?=config/local.env
 
 help: # this
 	@tty -s <&1 && { B=$$(printf '\033[1m'); C=$$(printf '\033[36m'); D=$$(printf '\033[2m'); N=$$(printf '\033[0m'); } || { B=; C=; D=; N=; }; \
-	printf '\n  %stmp%s  %smake <target>%s\n' "$$B" "$$N" "$$D" "$$N"; \
+	printf '\n  %stmp%s %s  %smake <target>%s\n' "$$B" "$$N" "$(VERSION)" "$$D" "$$N"; \
 	awk -v c="$$C" -v d="$$D" -v n="$$N" ' \
 	  match($$0, /^[a-zA-Z0-9_-]+:.*##@/) { \
 	    split($$0, a, ":.*##@"); split(a[2], b, " "); \
