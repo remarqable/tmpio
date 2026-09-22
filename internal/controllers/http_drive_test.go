@@ -361,3 +361,26 @@ func TestTidyEmptyFolderDoesNothing(t *testing.T) {
 	require.Equal(t, 303, res.StatusCode)
 	assert.NotContains(t, res.Header.Get("Location"), "error=")
 }
+
+// TestTidyWholeSite walks every folder, not just one, and leaves index pages
+// alone: an index page names its folder, so moving it renames the folder out
+// from under everything else in it.
+func TestTidyWholeSite(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	writePage(t, owner, "/notebook/one.md", "# One\n\nSomething.\n")
+	writePage(t, owner, "/research/two.md", "# Two\n\nSomething else.\n")
+	writePage(t, owner, "/notebook/index.md", "# Notebook\n")
+
+	res := owner.form("/bulk", url.Values{"dir": {"/"}, "action": {"refile-site"}})
+	res.Body.Close()
+	require.Equal(t, 303, res.StatusCode)
+	loc := res.Header.Get("Location")
+	assert.Contains(t, loc, "/admin", "a site-wide tidy reports back where it was started")
+	assert.Contains(t, loc, "tidied=")
+
+	// The index page still names its folder.
+	r := owner.do("GET", "/notebook/", nil, nil)
+	r.Body.Close()
+	assert.Equal(t, 200, r.StatusCode)
+}

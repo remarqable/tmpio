@@ -41,7 +41,8 @@ func (d *Deps) AdminOverview(c *gin.Context) {
 	}
 	sv.Title = i18n.T("en", "admin.overview")
 	aiSum, _ := d.Ops.AISummary(c.Request.Context(), a.Tenant.ID)
-	d.render(c, http.StatusOK, "pages/admin/overview.html", "layout/site", gin.H{"Site": sv, "Recent": recent, "MCPURL": d.abs("/mcp"), "OrgPrefix": orgPrefix(a.Tenant), "AIEnabled": d.Cfg.AI.Enabled(), "AIModel": d.Cfg.AI.Model, "AI": aiSum})
+	d.render(c, http.StatusOK, "pages/admin/overview.html", "layout/site", gin.H{"Site": sv, "Recent": recent, "MCPURL": d.abs("/mcp"), "OrgPrefix": orgPrefix(a.Tenant), "AIEnabled": d.Cfg.AI.Enabled(), "AIModel": d.Cfg.AI.Model, "AI": aiSum,
+		"Tidied": c.Query("tidied"), "Kept": c.Query("kept"), "More": c.Query("more")})
 }
 
 // AdminConnections shows connected clients and development API tokens.

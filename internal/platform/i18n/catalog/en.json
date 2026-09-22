@@ -353,5 +353,9 @@
   "refile.folder": "Tidy this folder",
   "refile.folder_help": "Look at every document here and move the ones that belong somewhere else.",
   "refile.folder_confirm": "Look at every document in this folder and move the ones that belong elsewhere?",
-  "refile.tidied": "Moved {moved}, left {kept} where they were. Old addresses still work."
+  "refile.tidied": "Moved {moved}, left {kept} where they were. Old addresses still work.",
+  "refile.site": "Tidy the whole site",
+  "refile.site_help": "Look at every document and move the ones that belong somewhere else. Old addresses keep working, and nothing is deleted.",
+  "refile.site_confirm": "Review every document on this site and move the ones that belong elsewhere?",
+  "refile.more": "There were more than one run can do; run it again to continue."
 }

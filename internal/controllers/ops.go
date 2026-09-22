@@ -551,6 +551,10 @@ func (d *Deps) BulkEntry(c *gin.Context) {
 		return
 	}
 	back := dirHTML(strings.TrimSpace(c.PostForm("dir")))
+	if c.PostForm("action") == "refile-site" {
+		back = "/admin"
+	}
+	capped := false
 	paths := c.PostFormArray("path")
 	revs := c.PostFormMap("rev")
 	action := c.PostForm("action")
@@ -558,7 +562,7 @@ func (d *Deps) BulkEntry(c *gin.Context) {
 	// Refiling needs the entries themselves, and "tidy this folder" needs to
 	// know what is in the folder, so read the tree once for both.
 	byPath := map[string]*models.Entry{}
-	if action == "refile" || action == "refile-all" {
+	if action == "refile" || action == "refile-all" || action == "refile-site" {
 		entries, err := d.Ops.Tree(c.Request.Context(), a.Tenant.ID, false)
 		if err != nil {
 			d.fail(c, err)
@@ -567,16 +571,31 @@ func (d *Deps) BulkEntry(c *gin.Context) {
 		for i := range entries {
 			byPath[entries[i].Path] = &entries[i]
 		}
-		if action == "refile-all" {
+		if action == "refile-all" || action == "refile-site" {
+			// refile-all is one folder; refile-site is everything.
+			whole := action == "refile-site"
 			action = "refile"
 			dir := strings.TrimSuffix(strings.TrimSpace(c.PostForm("dir")), "/")
 			paths = nil
 			for i := range entries {
 				e := &entries[i]
-				if (e.Kind == models.KindPage || e.Kind == models.KindFile) &&
-					parentDir(e.Path) == dir && !e.IsIndexPage() {
+				if e.Kind != models.KindPage && e.Kind != models.KindFile {
+					continue
+				}
+				// An index page is what names its folder; moving it would
+				// rename the folder out from under everything else in it.
+				if e.IsIndexPage() {
+					continue
+				}
+				if whole || parentDir(e.Path) == dir {
 					paths = append(paths, e.Path)
 				}
+			}
+			// Each document is a model call, so a large site is capped and
+			// says so rather than hanging on a request that cannot finish.
+			if len(paths) > refileBatchMax {
+				paths = paths[:refileBatchMax]
+				capped = true
 			}
 			if len(paths) == 0 {
 				c.Redirect(http.StatusSeeOther, back)
@@ -661,11 +680,20 @@ func (d *Deps) BulkEntry(c *gin.Context) {
 		return
 	}
 	if action == "refile" {
-		c.Redirect(http.StatusSeeOther, fmt.Sprintf("%s?tidied=%d&kept=%d", back, done-kept, kept))
+		more := ""
+		if capped {
+			more = "&more=1"
+		}
+		c.Redirect(http.StatusSeeOther, fmt.Sprintf("%s?tidied=%d&kept=%d%s", back, done-kept, kept, more))
 		return
 	}
 	c.Redirect(http.StatusSeeOther, back)
 }
+
+// A whole-site tidy is one model call per document, so it is capped: a run
+// that cannot finish inside a request is worse than one that does part of the
+// job and says so.
+const refileBatchMax = 100
 
 // refileOne asks where a document would go if it arrived today and moves it
 // there. Returns the new path, or "" when it is already where it belongs.
