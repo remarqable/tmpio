@@ -52,20 +52,21 @@
   --tmp-important: #7e22ce;   --tmp-important-bg: #f8f0ff; --tmp-important-border: #a855f7;
   --tmp-danger: #b91c1c;
 
-  /* Type scale. Eight steps, one ratio, every step landing on a whole pixel
-     at a 16px root. Anything not on this scale was a nudge, not a decision.
-        11 12 13 14 | 16 | 20 24 32 (40 display)
-     The four below the base are interface sizes; 16 and above are reading
-     sizes, stepping by a major third. */
+  /* Type scale. Nine steps, every step a whole pixel at the 16px root.
+        11 12 13 14 | 15 | 18 22 28 (34 display)
+     The four below the base are interface sizes and stay fixed: they are
+     already small, and shrinking them buys nothing but strain. The reading
+     sizes sit on a 15px body and step by about 1.23 — a quieter ladder than
+     the major third they used, which put a 32px title over 16px prose. */
   --tmp-text-2xs: 0.6875rem;  /* 11px  build stamp, micro labels */
   --tmp-text-xs:  0.75rem;    /* 12px  table headings, tags, paths */
   --tmp-text-sm:  0.8125rem;  /* 13px  secondary interface, buttons */
   --tmp-text-md:  0.875rem;   /* 14px  dense interface, sidebar, code */
-  --tmp-text-base: 1rem;      /* 16px  body copy */
-  --tmp-text-lg:  1.25rem;    /* 20px  h4, lead, dialog titles */
-  --tmp-text-xl:  1.5rem;     /* 24px  h3 */
-  --tmp-text-2xl: 2rem;       /* 32px  h2 and the page title */
-  --tmp-text-3xl: 2.5rem;     /* 40px  editorial display only */
+  --tmp-text-base: 0.9375rem; /* 15px  body copy */
+  --tmp-text-lg:  1.125rem;   /* 18px  h4, lead, dialog titles */
+  --tmp-text-xl:  1.375rem;   /* 22px  h3 */
+  --tmp-text-2xl: 1.75rem;    /* 28px  h2 and the page title */
+  --tmp-text-3xl: 2.125rem;   /* 34px  editorial display only */
 
   /* Spacing. A 4px grid, named by step so nothing is typed as a raw value.
      The rhythm used to be em-based (1.1em times 1.5, 1.8, 0.6), which cannot
@@ -93,6 +94,8 @@
   --tmp-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
   --tmp-font-body: var(--tmp-font-sans);
   --tmp-font-heading: var(--tmp-font-sans);
+  /* The root stays 16px so every rem in the scale lands on a whole pixel.
+     Body copy is --tmp-text-base (15px); this is not the reading size. */
   --tmp-font-size: 16px;
   --tmp-line-height: var(--tmp-leading-prose);
   --tmp-heading-weight: 650;
