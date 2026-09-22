@@ -1,6 +1,11 @@
 {{define "partials/_tree.html"}}<ul class="tmp-tree">
-{{range .Nodes}}<li>
-  <a href="{{.URL}}" class="tmp-tree-{{.Kind}}" {{if eq .URL $.Current}}aria-current="page"{{end}}>{{if eq .Kind "directory"}}{{template "icon" "folder"}}{{else}}{{template "icon" "file"}}{{end}}<span class="tmp-tree-label">{{.Title}}</span></a>
+{{range .Nodes}}{{$open := treeopen . $.Current}}<li{{if and .Children (not $open)}} class="tmp-tree-shut"{{end}}{{if .Children}} data-tree-path="{{.Path}}"{{end}}>
+  <div class="tmp-tree-row">
+    {{if .Children}}<button class="tmp-tree-twist" type="button" aria-expanded="{{$open}}" aria-label="{{.Title}}" data-tree-toggle>{{template "icon" "chevron"}}</button>
+    {{else}}<span class="tmp-tree-twist" aria-hidden="true"></span>{{end}}
+    <a href="{{.URL}}" class="tmp-tree-{{.Kind}}" {{if eq .URL $.Current}}aria-current="page"{{end}}>{{if eq .Kind "directory"}}{{template "icon" "folder"}}{{else}}{{template "icon" "file"}}{{end}}<span class="tmp-tree-label">{{.Title}}</span></a>
+    {{if .Children}}<span class="tmp-tree-count">{{.Count}}</span>{{end}}
+  </div>
   {{if .Children}}{{template "partials/_tree.html" (dict "Nodes" .Children "Current" $.Current)}}{{end}}
 </li>{{end}}
 </ul>{{end}}

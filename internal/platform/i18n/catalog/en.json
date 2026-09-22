@@ -340,5 +340,8 @@
   "drive.selected_one": "1 item selected",
   "drive.selected_many": "{n} items selected",
   "drive.folders_immovable": "Folders cannot be moved yet",
-  "site.build": "Version and build date of this instance"
+  "site.build": "Version and build date of this instance",
+  "site.filter": "Filter pages…",
+  "site.expand_all": "Expand all",
+  "site.collapse_all": "Collapse all"
 }

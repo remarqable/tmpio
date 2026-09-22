@@ -126,3 +126,95 @@
   });
   sync();
 })();
+
+// The sidebar tree: disclosure, remembered state and a filter. Without JS the
+// server has already opened the branch containing the current page, so the
+// tree is still usable — it just cannot be folded.
+(function () {
+  var nav = document.querySelector('[data-tree]');
+  if (!nav) return;
+  var KEY = 'tmp-tree-open';
+
+  function open() {
+    try { return JSON.parse(localStorage.getItem(KEY) || '[]'); } catch (e) { return []; }
+  }
+  function remember(list) {
+    try { localStorage.setItem(KEY, JSON.stringify(list.slice(0, 200))); } catch (e) {}
+  }
+  function setShut(li, shut) {
+    li.classList.toggle('tmp-tree-shut', shut);
+    var b = li.querySelector(':scope > .tmp-tree-row > [data-tree-toggle]');
+    if (b) b.setAttribute('aria-expanded', shut ? 'false' : 'true');
+  }
+
+  // Restore what was open last time, but never close the branch holding the
+  // page being looked at — where you are wins over where you were.
+  var saved = open();
+  nav.querySelectorAll('li[data-tree-path]').forEach(function (li) {
+    if (li.querySelector('[aria-current="page"]')) return;
+    setShut(li, saved.indexOf(li.getAttribute('data-tree-path')) === -1);
+  });
+
+  nav.addEventListener('click', function (e) {
+    var b = e.target.closest('[data-tree-toggle]');
+    if (!b) return;
+    e.preventDefault();
+    var li = b.closest('li');
+    var shut = !li.classList.contains('tmp-tree-shut');
+    setShut(li, shut);
+    var path = li.getAttribute('data-tree-path');
+    var list = open().filter(function (p) { return p !== path; });
+    if (!shut) list.push(path);
+    remember(list);
+  });
+
+  function all(shut) {
+    var list = [];
+    nav.querySelectorAll('li[data-tree-path]').forEach(function (li) {
+      setShut(li, shut);
+      if (!shut) list.push(li.getAttribute('data-tree-path'));
+    });
+    remember(list);
+  }
+  var ex = document.querySelector('[data-tree-expand]');
+  var co = document.querySelector('[data-tree-collapse]');
+  if (ex) ex.addEventListener('click', function () { all(false); });
+  if (co) co.addEventListener('click', function () { all(true); });
+
+  // Filter: a row survives if it matches, or if something under it does.
+  var filter = document.querySelector('[data-tree-filter]');
+  if (!filter) return;
+  var note = null;
+  filter.addEventListener('input', function () {
+    var q = filter.value.trim().toLowerCase();
+    if (note) { note.remove(); note = null; }
+    var items = nav.querySelectorAll('li');
+    if (!q) {
+      items.forEach(function (li) {
+        li.classList.remove('tmp-tree-hidden');
+        if (li.hasAttribute('data-tree-path')) {
+          setShut(li, saved.indexOf(li.getAttribute('data-tree-path')) === -1 &&
+                      !li.querySelector('[aria-current="page"]'));
+        }
+      });
+      return;
+    }
+    var hits = 0;
+    items.forEach(function (li) {
+      var own = li.querySelector(':scope > .tmp-tree-row .tmp-tree-label');
+      var self = own && own.textContent.toLowerCase().indexOf(q) !== -1;
+      var kid = Array.prototype.some.call(li.querySelectorAll('.tmp-tree-label'), function (l) {
+        return l.textContent.toLowerCase().indexOf(q) !== -1;
+      });
+      li.classList.toggle('tmp-tree-hidden', !(self || kid));
+      if (self && !li.hasAttribute('data-tree-path')) hits++;
+      if ((self || kid) && li.hasAttribute('data-tree-path')) setShut(li, false);
+    });
+    if (!hits) {
+      note = document.createElement('p');
+      note.className = 'tmp-tree-nohits';
+      note.textContent = 'No pages match “' + filter.value.trim() + '”.';
+      nav.appendChild(note);
+    }
+  });
+})();

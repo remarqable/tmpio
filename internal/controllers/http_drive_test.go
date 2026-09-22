@@ -239,3 +239,40 @@ func TestBreadcrumbUsesTheRealTitle(t *testing.T) {
 	assert.Contains(t, crumbs, "CRM options for a two person team")
 	assert.NotContains(t, crumbs, "Crm options", "the slug must not be title-cased over the real title")
 }
+
+// TestSidebarTreeIsCollapsible pins the rail's contract: a folder carries a
+// count and a disclosure control, folders holding the current page are open,
+// and the rest are shut.
+func TestSidebarTreeIsCollapsible(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	writePage(t, owner, "/personal/lasagne.md", "# Lasagne\n")
+	writePage(t, owner, "/personal/travel/japan.md", "# Japan\n")
+	writePage(t, owner, "/business/acme/deal.md", "# Deal\n")
+
+	res := owner.do("GET", "/personal/lasagne", nil, nil)
+	body := readAll(res)
+	require.Equal(t, 200, res.StatusCode)
+
+	assert.Contains(t, body, "data-tree-toggle", "folders get a disclosure control")
+	assert.Contains(t, body, `class="tmp-tree-count"`, "folders say how much they hold")
+	assert.Contains(t, body, "data-tree-filter", "the rail has a filter")
+
+	// The branch holding the current page is open; an unrelated one is shut.
+	personal := body[strings.Index(body, `data-tree-path="/personal"`):]
+	personal = personal[:strings.Index(personal, "</li>")]
+	assert.NotContains(t, personal, "tmp-tree-shut", "the branch you are in is open")
+	assert.Contains(t, body, `class="tmp-tree-shut" data-tree-path="/business"`,
+		"a branch you are not in stays shut")
+}
+
+// TestSidebarCountsEveryDocumentBeneath is the number on a shut folder: it
+// has to include subdirectories, or it understates what is hidden.
+func TestSidebarCountsEveryDocumentBeneath(t *testing.T) {
+	kid := &NavNode{Kind: models.KindPage}
+	deep := &NavNode{Kind: models.KindDirectory, Children: []*NavNode{{Kind: models.KindPage}, {Kind: models.KindPage}}}
+	dir := &NavNode{Kind: models.KindDirectory, Children: []*NavNode{kid, deep}}
+	countLeaves(dir)
+	assert.Equal(t, 2, deep.Count)
+	assert.Equal(t, 3, dir.Count, "a folder counts its subfolders' documents too")
+}

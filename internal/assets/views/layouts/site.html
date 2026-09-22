@@ -58,7 +58,9 @@
       <button class="tmp-tool tmp-tool-block" type="button" data-open-dialog="tmp-quickadd" title="{{t "quick.lead"}}">{{template "icon" "sparkle"}} {{t "quick.title"}}</button>
     </div>
     {{end}}
-    <nav>{{template "partials/_tree.html" (dict "Nodes" .Site.Sidebar "Current" .Site.CurrentHTML)}}</nav>
+    <div class="tmp-tree-filter">{{template "icon" "search"}}<input type="text" placeholder="{{t "site.filter"}}" aria-label="{{t "site.filter"}}" autocomplete="off" spellcheck="false" data-tree-filter></div>
+    <nav data-tree>{{template "partials/_tree.html" (dict "Nodes" .Site.Sidebar "Current" .Site.CurrentHTML)}}</nav>
+    <div class="tmp-tree-actions"><button type="button" data-tree-expand>{{t "site.expand_all"}}</button><button type="button" data-tree-collapse>{{t "site.collapse_all"}}</button></div>
     <div class="tmp-sidebar-foot">
       {{if .Site.IsOwner}}<div class="tmp-tools tmp-tools-bottom"><a class="tmp-tool" href="/trash" {{if eq .Site.CurrentHTML "/trash"}}aria-current="page"{{end}}>{{template "icon" "trash"}} {{t "nav.trash"}}</a><a class="tmp-tool" href="/format">{{template "icon" "info"}} {{t "editor.format_help"}}</a></div>{{end}}
       <p class="tmp-build" title="{{t "site.build"}}">{{.Build}}</p>

@@ -37,6 +37,10 @@ type NavNode struct {
 	Revision int64
 	Size     int64
 	Updated  time.Time
+
+	// Pages beneath a directory, so a collapsed folder can say how much it is
+	// hiding rather than making you open it to find out.
+	Count int
 }
 
 // RenderedPage is the view model of a rendered document.
@@ -177,7 +181,39 @@ func buildTree(entries []models.Entry, prefix string) []*NavNode {
 	sortNodes(root)
 	prune(root)
 	rollUp(root)
+	countLeaves(root)
 	return root.Children
+}
+
+// nodeHasCurrent reports whether this node is the current page or holds it
+// somewhere beneath.
+func nodeHasCurrent(n *NavNode, current string) bool {
+	if current == "" || n == nil {
+		return false
+	}
+	if n.URL == current {
+		return true
+	}
+	for _, ch := range n.Children {
+		if nodeHasCurrent(ch, current) {
+			return true
+		}
+	}
+	return false
+}
+
+// countLeaves gives every directory the number of documents beneath it,
+// including those in its subdirectories.
+func countLeaves(n *NavNode) int {
+	if n.Kind != models.KindDirectory {
+		return 1
+	}
+	total := 0
+	for _, ch := range n.Children {
+		total += countLeaves(ch)
+	}
+	n.Count = total
+	return total
 }
 
 // rollUp gives every directory the newest timestamp beneath it, so a folder

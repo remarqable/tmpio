@@ -125,6 +125,9 @@ func FuncMap() template.FuncMap {
 				return t.UTC().Format("2 Jan 2006")
 			}
 		},
+		// A folder starts open only when the page you are on is inside it, so
+		// the rail shows where you are without showing everything else.
+		"treeopen": func(n *NavNode, current string) bool { return nodeHasCurrent(n, current) },
 		"int64": func(v any) int64 {
 			switch n := v.(type) {
 			case int64:

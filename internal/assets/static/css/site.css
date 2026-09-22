@@ -508,55 +508,129 @@ body.tmp-site {
   margin: 0;
   padding: 0;
 }
-/* Nested levels draw their own guides rather than the parent drawing one
-   border down the side. Each row gets a vertical run and an elbow into it,
-   and the last child stops its run at the elbow, which is what makes the
-   branch look closed instead of trailing off into the next section. */
-.tmp-tree ul { margin-left: var(--tmp-space-3); padding-left: var(--tmp-space-3); }
+/* The rail is a directory listing: a disclosure chevron, a folder or file
+   icon, the name, and for a folder how many documents are inside it. Folders
+   start shut unless the page you are on is in them, so the rail shows where
+   you are rather than everything at once.
+
+   The guide is a single vertical rule per level. An earlier version drew
+   elbows into each row; at this density they read as clutter rather than as
+   structure. */
+.tmp-tree ul {
+  margin-left: 0.75rem;
+  padding-left: 0.5rem;
+  border-left: 1px solid var(--tmp-border);
+}
 .tmp-tree li { margin: 0; }
-.tmp-tree ul > li { position: relative; }
-.tmp-tree ul > li::before,
-.tmp-tree ul > li::after {
-  content: "";
-  position: absolute;
-  background: var(--tmp-border);
+.tmp-tree-shut > ul { display: none; }
+
+.tmp-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: var(--tmp-radius);
 }
-/* the vertical run, down the whole row and its children */
-.tmp-tree ul > li::before {
-  left: -0.75rem;
-  top: 0;
-  bottom: 0;
-  width: 1px;
+.tmp-tree-row:hover { background: var(--tmp-bg-elev); }
+
+/* The chevron toggles; the name navigates. Two targets, because a folder is
+   both a place you open and a page you can read. */
+.tmp-tree-twist {
+  flex: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--tmp-fg-muted);
+  cursor: pointer;
+  border-radius: 4px;
 }
-/* the last child stops level with its own elbow */
-.tmp-tree ul > li:last-child::before { bottom: auto; height: 0.95em; }
-/* the elbow reaching in to the row */
-.tmp-tree ul > li::after {
-  left: -0.75rem;
-  top: 0.95em;
-  width: 0.5rem;
-  height: 1px;
+.tmp-tree-twist .ic {
+  width: 0.75rem;
+  height: 0.75rem;
+  opacity: 0.7;
+  transition: transform 150ms cubic-bezier(0.25, 1, 0.5, 1);
 }
+.tmp-tree-twist[aria-expanded="true"] .ic { transform: rotate(90deg); }
+.tmp-tree-twist:hover { color: var(--tmp-fg); background: var(--tmp-bg-subtle); }
+span.tmp-tree-twist { cursor: default; }
+
+.tmp-tree-count {
+  flex: none;
+  margin-left: auto;
+  padding-right: 0.5rem;
+  font-family: var(--tmp-font-mono);
+  font-size: var(--tmp-text-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--tmp-fg-muted);
+  opacity: 0.75;
+}
+
 .tmp-tree a {
+  flex: 1;
+  min-width: 0;
   display: flex;
   align-items: flex-start;
   gap: 0.4em;
-  padding: 0.28em 0.6em;
+  padding: 0.28em 0.35em 0.28em 0;
   color: var(--tmp-fg-muted);
   border-radius: var(--tmp-radius);
   line-height: var(--tmp-leading-ui);
   overflow-wrap: anywhere;
 }
 .tmp-tree-label { min-width: 0; overflow-wrap: anywhere; }
-/* The icon sits on the first line's centre even when the title wraps. */
 .tmp-tree a .ic { flex: none; margin-top: 0.12em; }
-.tmp-tree a:hover { color: var(--tmp-fg); background: var(--tmp-bg-subtle); text-decoration: none; }
-.tmp-tree a[aria-current="page"] {
-  color: var(--tmp-link);
-  font-weight: 600;
-  background: var(--tmp-note-bg);
-}
+.tmp-tree a:hover { color: var(--tmp-fg); text-decoration: none; }
+.tmp-tree-row:has(a[aria-current="page"]) { background: var(--tmp-note-bg); }
+.tmp-tree a[aria-current="page"] { color: var(--tmp-link); font-weight: 600; }
 .tmp-tree-directory { font-weight: 600; color: var(--tmp-fg); }
+
+/* Filter box and the expand/collapse pair under the tree. */
+.tmp-tree-filter {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2rem;
+  padding: 0 var(--tmp-space-2);
+  margin: 0 var(--tmp-space-2) var(--tmp-space-3) 0;
+  border: 1px solid var(--tmp-border);
+  border-radius: var(--tmp-radius);
+  background: var(--tmp-bg-elev);
+  color: var(--tmp-fg-muted);
+}
+.tmp-tree-filter .ic { flex: none; width: 0.875rem; height: 0.875rem; opacity: 0.7; }
+.tmp-tree-filter input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--tmp-fg);
+  font: inherit;
+  font-size: var(--tmp-text-sm);
+}
+.tmp-tree-filter input::placeholder { color: var(--tmp-fg-muted); }
+.tmp-tree-actions {
+  display: flex;
+  gap: var(--tmp-space-3);
+  margin-top: var(--tmp-space-2);
+  padding: var(--tmp-space-2) 0 0 var(--tmp-space-2);
+  font-size: var(--tmp-text-xs);
+}
+.tmp-tree-actions button {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  color: var(--tmp-fg-muted);
+  cursor: pointer;
+}
+.tmp-tree-actions button:hover { color: var(--tmp-fg); text-decoration: underline; }
+.tmp-tree-nohits { padding: var(--tmp-space-2); font-size: var(--tmp-text-sm); color: var(--tmp-fg-muted); }
+.tmp-tree-hidden { display: none !important; }
 
 /* table of contents */
 .tmp-toc {
