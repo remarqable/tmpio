@@ -751,9 +751,14 @@ step "This script"
 # `-ef` compares inodes rather than paths: if this IS the installed copy,
 # there is nothing to do. Writing it to itself truncates the file the shell
 # is still reading, which empties the script mid-run.
-if [ -f "$0" ] && [ "$0" -ef "${DIR}/install.sh" ]; then
+# Piped from curl, "$0" is the string "bash". If the working directory happens
+# to hold a file of that name, [ -f "$0" ] is true and the wrong file would be
+# copied into place, so check that it really is this script first.
+is_self() { [ -f "$0" ] && head -5 "$0" 2>/dev/null | grep -q 'tmp installer'; }
+
+if is_self && [ "$0" -ef "${DIR}/install.sh" ]; then
   note "already running the copy at ${DIR}/install.sh"
-elif [ -f "$0" ]; then
+elif is_self; then
   cp -f "$0" "${DIR}/install.sh"
   chmod 0755 "${DIR}/install.sh"
   note "kept a copy at ${DIR}/install.sh (run it with no arguments to see what it can do)"
