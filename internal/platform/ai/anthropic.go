@@ -69,11 +69,27 @@ func (c *Client) Model() string { return c.cfg.Model }
 func (c *Client) Enabled(context.Context) bool { return true }
 
 type request struct {
-	Model       string    `json:"model"`
-	MaxTokens   int       `json:"max_tokens"`
-	Temperature float64   `json:"temperature"`
-	System      string    `json:"system,omitempty"`
-	Messages    []message `json:"messages"`
+	Model       string      `json:"model"`
+	MaxTokens   int         `json:"max_tokens"`
+	Temperature float64     `json:"temperature"`
+	System      string      `json:"system,omitempty"`
+	Messages    []message   `json:"messages"`
+	Tools       []tool      `json:"tools,omitempty"`
+	ToolChoice  *toolChoice `json:"tool_choice,omitempty"`
+}
+
+// A tool the model must call. Its input schema is the reply shape, which the
+// API validates - so the answer arrives as an object rather than as prose that
+// happens to contain one.
+type tool struct {
+	Name        string `json:"name"`
+	Description string `json:"description,omitempty"`
+	InputSchema any    `json:"input_schema"`
+}
+
+type toolChoice struct {
+	Type string `json:"type"`
+	Name string `json:"name,omitempty"`
 }
 
 type message struct {
@@ -83,8 +99,10 @@ type message struct {
 
 type response struct {
 	Content []struct {
-		Type string `json:"type"`
-		Text string `json:"text"`
+		Type  string          `json:"type"`
+		Text  string          `json:"text"`
+		Name  string          `json:"name"`
+		Input json.RawMessage `json:"input"`
 	} `json:"content"`
 	Usage struct {
 		InputTokens  int `json:"input_tokens"`
@@ -98,7 +116,24 @@ type response struct {
 
 // Complete implements Completer.
 func (c *Client) Complete(ctx context.Context, system, user string, maxTokens int) (Result, error) {
-	body, err := json.Marshal(request{Model: c.cfg.Model, MaxTokens: maxTokens, Temperature: 0, System: system, Messages: []message{{Role: "user", Content: user}}})
+	return c.send(ctx, request{Model: c.cfg.Model, MaxTokens: maxTokens, Temperature: 0, System: system, Messages: []message{{Role: "user", Content: user}}})
+}
+
+// CompleteJSON makes the model answer by calling a tool whose input schema is
+// the reply shape. The API validates the arguments, so the result is an object
+// rather than prose that has to be scraped for one. Result.Text carries that
+// object.
+func (c *Client) CompleteJSON(ctx context.Context, system, user string, maxTokens int, name string, schema any) (Result, error) {
+	return c.send(ctx, request{
+		Model: c.cfg.Model, MaxTokens: maxTokens, Temperature: 0, System: system,
+		Messages:   []message{{Role: "user", Content: user}},
+		Tools:      []tool{{Name: name, Description: "Record the answer.", InputSchema: schema}},
+		ToolChoice: &toolChoice{Type: "tool", Name: name},
+	})
+}
+
+func (c *Client) send(ctx context.Context, r request) (Result, error) {
+	body, err := json.Marshal(r)
 	if err != nil {
 		return Result{}, err
 	}
@@ -137,8 +172,12 @@ func (c *Client) Complete(ctx context.Context, system, user string, maxTokens in
 	}
 	var text strings.Builder
 	for _, part := range out.Content {
-		if part.Type == "text" {
+		switch part.Type {
+		case "text":
 			text.WriteString(part.Text)
+		case "tool_use":
+			// The validated arguments are the answer; nothing else matters.
+			return Result{Text: string(part.Input), InputTokens: out.Usage.InputTokens, OutputTokens: out.Usage.OutputTokens}, nil
 		}
 	}
 	return Result{Text: text.String(), InputTokens: out.Usage.InputTokens, OutputTokens: out.Usage.OutputTokens}, nil

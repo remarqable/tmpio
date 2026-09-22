@@ -3,6 +3,7 @@ package models
 import (
 	"context"
 	"errors"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -157,4 +158,71 @@ func TestPlacementHelpers(t *testing.T) {
 	assert.Equal(t, ".csv", placementExt("data.CSV", "x"))
 	assert.Equal(t, ".md", placementExt("notes.docx", "x"))
 	assert.Equal(t, ".json", placementExt("", `[1,2]`))
+}
+
+// jsonFakeAI implements the optional schema-validated path, so the reply
+// arrives as a bare object the way the real client now returns one.
+type jsonFakeAI struct {
+	fakeAI
+	sawSchema any
+	sawTool   string
+}
+
+func (f *jsonFakeAI) CompleteJSON(_ context.Context, _ string, user string, _ int, name string, schema any) (ai.Result, error) {
+	f.seen = user
+	f.sawTool, f.sawSchema = name, schema
+	return ai.Result{Text: f.reply}, nil
+}
+
+// TestPlacementPrefersSchemaValidatedReply: when the client can force a shape,
+// the filer uses it, and the reply needs no scraping out of prose.
+func TestPlacementPrefersSchemaValidatedReply(t *testing.T) {
+	f := &jsonFakeAI{fakeAI: fakeAI{reply: `{"directory":"/business/acme","name":"q3-investor-update","title":"Q3 investor update"}`}}
+	o := &Ops{AI: f}
+
+	res, err := o.completePlacement(t.Context(), "some document")
+	require.NoError(t, err)
+	assert.Equal(t, "file_document", f.sawTool, "the answer is recorded through a tool")
+	assert.NotNil(t, f.sawSchema, "the reply shape is handed to the API, not only described in prose")
+	assert.Equal(t, `{"directory":"/business/acme","name":"q3-investor-update","title":"Q3 investor update"}`, res.Text)
+}
+
+// TestPlacementFallsBackToText keeps a client without the optional method
+// working: the answer is scraped out of whatever came back.
+func TestPlacementFallsBackToText(t *testing.T) {
+	f := &fakeAI{reply: "```json\n{\"directory\":\"/research\"}\n```"}
+	o := &Ops{AI: f}
+	res, err := o.completePlacement(t.Context(), "some document")
+	require.NoError(t, err)
+	assert.Contains(t, res.Text, "/research")
+}
+
+// TestPromptClosesTheTopLevel is the rule that stops the tree sprawling: the
+// categories are a fixed list, not a list of examples. The nine suggested
+// "for example" categories are what produced /notebook and /writing beside
+// /personal on a real site.
+func TestPromptClosesTheTopLevel(t *testing.T) {
+	assert.NotContains(t, placeSystemPrompt, "for example business, personal",
+		"the categories must not read as suggestions")
+	assert.Contains(t, placeSystemPrompt, "Never invent a sixth top-level folder")
+	for _, want := range []string{"/business", "/personal", "/projects", "/research", "/inbox"} {
+		assert.Contains(t, placeSystemPrompt, want)
+	}
+	// Folders that used to be offered as categories and are now second level.
+	for _, gone := range []string{"writing, finance, health, learning", "/notebook"} {
+		assert.NotContains(t, placeSystemPrompt, gone)
+	}
+}
+
+// TestPromptRulesTheReviewAsked covers the other three: the tree is evidence
+// of the owner's own vocabulary, a mixed document is filed by primary purpose,
+// and a recurring document may lead with a date.
+func TestPromptRulesTheReviewAsked(t *testing.T) {
+	assert.Contains(t, placeSystemPrompt, "evidence of how the owner organizes")
+	assert.Contains(t, placeSystemPrompt, "/clients", "an existing vocabulary is named as an example")
+	assert.Contains(t, placeSystemPrompt, "primary purpose")
+	assert.Contains(t, placeSystemPrompt, "ISO date")
+	// inbox is a destination now, so it cannot also be a forbidden root.
+	reserved := placeSystemPrompt[strings.Index(placeSystemPrompt, "Never use these root folders:"):]
+	assert.NotContains(t, reserved, "inbox")
 }
