@@ -53,19 +53,19 @@
   --tmp-danger: #b91c1c;
 
   /* Type scale. Nine steps, every step a whole pixel at the 16px root.
-        10 11 12 13 | 14 | 16 19 24 (28 display)
-     The whole ladder, not just the reading sizes: monospace sets wider and
-     with a larger x-height, so the same pixel size reads bigger than the
-     sans did. */
+        10 11 12 | 13 | 16 18 21 (24 display)
+     Body copy is the same size as the sidebar: at this scale a document and
+     the list of documents are both just text, and making the prose bigger
+     than the navigation implied a hierarchy that is not there. */
   --tmp-text-2xs: 0.625rem;   /* 10px  build stamp, micro labels */
   --tmp-text-xs:  0.6875rem;  /* 11px  table headings, tags, paths */
   --tmp-text-sm:  0.75rem;    /* 12px  secondary interface, buttons */
   --tmp-text-md:  0.8125rem;  /* 13px  dense interface, sidebar */
-  --tmp-text-base: 0.875rem;  /* 14px  body copy */
+  --tmp-text-base: 0.8125rem; /* 13px  body copy, same as the sidebar */
   --tmp-text-lg:  1rem;       /* 16px  h4, lead, dialog titles */
-  --tmp-text-xl:  1.1875rem;  /* 19px  h3 */
-  --tmp-text-2xl: 1.5rem;     /* 24px  h2 and the page title */
-  --tmp-text-3xl: 1.75rem;    /* 28px  editorial display only */
+  --tmp-text-xl:  1.125rem;   /* 18px  h3 */
+  --tmp-text-2xl: 1.3125rem;  /* 21px  h2 and the page title */
+  --tmp-text-3xl: 1.5rem;     /* 24px  editorial display only */
 
   /* Spacing. A 4px grid, named by step so nothing is typed as a raw value.
      The rhythm used to be em-based (1.1em times 1.5, 1.8, 0.6), which cannot
