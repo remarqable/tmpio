@@ -194,7 +194,14 @@ first_arg() {
 installer_line() {
   local note
   case "$SELF_UPDATE_STATE" in
-    updated)  note="${GREEN}self-updated from ${TMP_UPDATED_FROM}${NC}" ;;
+    updated)
+      # A fix published without a version bump still replaces the file, and
+      # "self-updated from 1.1.0" while running 1.1.0 reads as a malfunction.
+      if [ "${TMP_UPDATED_FROM}" = "$VERSION" ]; then
+        note="${GREEN}refreshed${NC}"
+      else
+        note="${GREEN}self-updated from ${TMP_UPDATED_FROM}${NC}"
+      fi ;;
     current)  note="${DIM}up to date${NC}" ;;
     offline)  note="${YELLOW}could not reach github${NC}" ;;
     off)      note="${DIM}check skipped (--no-self-update)${NC}" ;;
