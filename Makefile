@@ -8,8 +8,8 @@ ENV?=config/local.env
 
 
 help: # this
-	@tty -s <&1 && { B=$$(printf '\033[1m'); C=$$(printf '\033[36m'); D=$$(printf '\033[2m'); N=$$(printf '\033[0m'); } || { B=; C=; D=; N=; }; \
-	printf '\n  %stmp%s %s  %smake <target>%s\n' "$$B" "$$N" "$(VERSION)" "$$D" "$$N"; \
+	@tty -s <&1 && { C=$$(printf '\033[36m'); D=$$(printf '\033[2m'); N=$$(printf '\033[0m'); } || { C=; D=; N=; }; \
+	printf '\n  tmp %s  %smake <target>%s\n' "$(RELEASE)" "$$D" "$$N"; \
 	awk -v c="$$C" -v d="$$D" -v n="$$N" ' \
 	  match($$0, /^[a-zA-Z0-9_-]+:.*##@/) { \
 	    split($$0, a, ":.*##@"); split(a[2], b, " "); \
@@ -73,6 +73,7 @@ run: ##@Develop start the dev server
 	@set -a && . ./$(ENV) && set +a && go run -ldflags="$(LDFLAGS)" ./cmd/api
 
 VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+RELEASE ?= $(shell git describe --tags --abbrev=0 2>/dev/null || echo unreleased)
 BUILD_DATE ?= $(shell date -u +%Y-%m-%d)
 LDFLAGS = -X github.com/remarqable/tmpio/internal/version.Version=$(VERSION) -X github.com/remarqable/tmpio/internal/version.Date=$(BUILD_DATE)
 
