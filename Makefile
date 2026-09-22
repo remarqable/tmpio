@@ -6,15 +6,23 @@ ENV?=config/local.env
 
 .DEFAULT_GOAL := help
 
+help-all: # Every target, including the ones help leaves out
+	@tty -s <&1 && { C=$$(printf '\033[36m'); D=$$(printf '\033[2m'); N=$$(printf '\033[0m'); } || { C=; D=; N=; }; \
+	printf '\n  %severy target%s\n\n' "$$D" "$$N"; \
+	awk -v c="$$C" -v n="$$N" ' \
+	  /^[a-zA-Z0-9_-]+:.*#/ { split($$0, a, ":.*#+ *"); \
+	    printf "  %s%-16s%s %s\n", c, a[1], n, a[2] }' $(MAKEFILE_LIST) | sort -u; \
+	printf '\n'
+
 help: ## this
 	@tty -s <&1 && { B=$$(printf '\033[1m'); C=$$(printf '\033[36m'); D=$$(printf '\033[2m'); N=$$(printf '\033[0m'); } || { B=; C=; D=; N=; }; \
 	printf '\n  %stmp%s  %smake <target>%s\n\n' "$$B" "$$N" "$$D" "$$N"; \
 	awk -v c="$$C" -v n="$$N" ' \
 	  /^[a-zA-Z0-9_-]+:.*##/ { split($$0, a, ":.*## "); \
 	    printf "  %s%-9s%s %s\n", c, a[1], n, a[2] }' $(MAKEFILE_LIST); \
-	printf '\n  %sHOST=root@example.com make update   ·   more targets in the Makefile%s\n\n' "$$d$$D" "$$N"
+	printf '\n  %sHOST=root@example.com make update   ·   make help-all for the rest%s\n\n' "$$D" "$$N"
 
-.PHONY: help installer-smoke update reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
+.PHONY: help help-all installer-smoke update reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
 
 update: ## deploy to a host
 	@scp -q install.sh $${HOST:-root@tmp.io}:/opt/tmp/install.sh
