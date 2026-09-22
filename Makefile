@@ -25,20 +25,39 @@ help: # this
 
 .PHONY: help release installer-smoke update reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
 
-release: ##@Ship publish a version (make release V=1.4.1)
-	@test -n "$(V)" || { echo "usage: make release V=1.4.1"; exit 1; }
-	@case "$(V)" in v*) echo "leave the v off: make release V=$${V#v}"; exit 1 ;; esac
-	@git diff --quiet && git diff --cached --quiet || { echo "working tree is dirty; commit first"; exit 1; }
-	@test -z "$$(git log origin/main..HEAD --oneline)" || { echo "unpushed commits; git push first"; exit 1; }
-	@git rev-parse -q --verify "refs/tags/v$(V)" >/dev/null && { echo "v$(V) already exists"; exit 1; } || true
-	@printf 'tagging v%s at %s\n' "$(V)" "$$(git rev-parse --short HEAD)"
-	@git tag -a "v$(V)" -m "v$(V)" && git push -q origin "v$(V)"
-	@echo "pushed. building the image (arm64 is emulated, so this takes a while)…"
-	@until [ "$$(gh run list --workflow release --branch v$(V) --limit 1 --json status --jq '.[0].status' 2>/dev/null)" = completed ]; do sleep 20; done; \
-	 r=$$(gh run list --workflow release --branch v$(V) --limit 1 --json conclusion --jq '.[0].conclusion'); \
-	 if [ "$$r" = success ]; then echo "ghcr.io/remarqable/tmpio:$(V) published, and :1 now points at it"; \
-	   echo "deploy it:  make update"; \
-	 else echo "the build did not succeed: $$r"; exit 1; fi
+release: ##@Ship publish a version (bare = next patch; V=1.5 = next minor)
+	@set -e; \
+	last=$$(git tag --list 'v[0-9]*' --sort=-v:refname | head -1); last=$${last#v}; \
+	if [ -z "$(V)" ]; then \
+	  test -n "$$last" || { echo "no releases yet, so there is nothing to bump: make release V=1.0.0"; exit 1; }; \
+	  maj=$${last%%.*}; rest=$${last#*.}; min=$${rest%%.*}; pat=$${rest#*.}; pat=$${pat%%-*}; \
+	  new="$$maj.$$min.$$((pat + 1))"; \
+	else \
+	  case "$(V)" in \
+	    v*)     echo "leave the v off: make release V=$${V#v}"; exit 1 ;; \
+	    *.*.*)  new="$(V)" ;; \
+	    *.*)    new="$(V).0" ;; \
+	    *)      echo "V looks like 1.5 (next minor) or 1.5.2 (exactly that)"; exit 1 ;; \
+	  esac; \
+	fi; \
+	case "$$new" in *[!0-9.]*) echo "v$$new is not a version"; exit 1 ;; esac; \
+	if [ -n "$$last" ] && [ "$$new" = "$$last" -o "$$(printf '%s\n%s\n' "$$last" "$$new" | sort -V | tail -1)" != "$$new" ]; then \
+	  echo "v$$new is not newer than v$$last"; exit 1; \
+	fi; \
+	git rev-parse -q --verify "refs/tags/v$$new" >/dev/null && { echo "v$$new already exists"; exit 1; } || true; \
+	n=$$(git log v$$last..HEAD --oneline 2>/dev/null | wc -l | tr -d ' '); \
+	printf 'v%s -> v%s  (%s commits, at %s)\n' "$${last:-none}" "$$new" "$$n" "$$(git rev-parse --short HEAD)"; \
+	if [ "$(DRY)" = 1 ]; then echo "(dry run, nothing tagged)"; exit 0; fi; \
+	git diff --quiet && git diff --cached --quiet || { echo "working tree is dirty; commit first"; exit 1; }; \
+	test -z "$$(git log origin/main..HEAD --oneline)" || { echo "unpushed commits; git push first"; exit 1; }; \
+	git tag -a "v$$new" -m "v$$new" && git push -q origin "v$$new"; \
+	echo "pushed. building the image (arm64 is emulated, so this takes a while)…"; \
+	until [ "$$(gh run list --workflow release --branch v$$new --limit 1 --json status --jq '.[0].status' 2>/dev/null)" = completed ]; do sleep 20; done; \
+	r=$$(gh run list --workflow release --branch v$$new --limit 1 --json conclusion --jq '.[0].conclusion'); \
+	if [ "$$r" = success ]; then \
+	  echo "ghcr.io/remarqable/tmpio:$$new published, and :1 now points at it"; \
+	  echo "deploy it:  make update"; \
+	else echo "the build did not succeed: $$r"; exit 1; fi
 
 update: ##@Ship update a host to the current release
 	@scp -q install.sh $${HOST:-root@tmp.io}:/opt/tmp/install.sh
