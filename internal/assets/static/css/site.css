@@ -53,20 +53,19 @@
   --tmp-danger: #b91c1c;
 
   /* Type scale. Nine steps, every step a whole pixel at the 16px root.
-        11 12 13 14 | 15 | 18 22 28 (34 display)
-     The four below the base are interface sizes and stay fixed: they are
-     already small, and shrinking them buys nothing but strain. The reading
-     sizes sit on a 15px body and step by about 1.23 — a quieter ladder than
-     the major third they used, which put a 32px title over 16px prose. */
-  --tmp-text-2xs: 0.6875rem;  /* 11px  build stamp, micro labels */
-  --tmp-text-xs:  0.75rem;    /* 12px  table headings, tags, paths */
-  --tmp-text-sm:  0.8125rem;  /* 13px  secondary interface, buttons */
-  --tmp-text-md:  0.875rem;   /* 14px  dense interface, sidebar, code */
-  --tmp-text-base: 0.9375rem; /* 15px  body copy */
-  --tmp-text-lg:  1.125rem;   /* 18px  h4, lead, dialog titles */
-  --tmp-text-xl:  1.375rem;   /* 22px  h3 */
-  --tmp-text-2xl: 1.75rem;    /* 28px  h2 and the page title */
-  --tmp-text-3xl: 2.125rem;   /* 34px  editorial display only */
+        10 11 12 13 | 14 | 16 19 24 (28 display)
+     The whole ladder, not just the reading sizes: monospace sets wider and
+     with a larger x-height, so the same pixel size reads bigger than the
+     sans did. */
+  --tmp-text-2xs: 0.625rem;   /* 10px  build stamp, micro labels */
+  --tmp-text-xs:  0.6875rem;  /* 11px  table headings, tags, paths */
+  --tmp-text-sm:  0.75rem;    /* 12px  secondary interface, buttons */
+  --tmp-text-md:  0.8125rem;  /* 13px  dense interface, sidebar */
+  --tmp-text-base: 0.875rem;  /* 14px  body copy */
+  --tmp-text-lg:  1rem;       /* 16px  h4, lead, dialog titles */
+  --tmp-text-xl:  1.1875rem;  /* 19px  h3 */
+  --tmp-text-2xl: 1.5rem;     /* 24px  h2 and the page title */
+  --tmp-text-3xl: 1.75rem;    /* 28px  editorial display only */
 
   /* Spacing. A 4px grid, named by step so nothing is typed as a raw value.
      The rhythm used to be em-based (1.1em times 1.5, 1.8, 0.6), which cannot
@@ -92,8 +91,8 @@
   --tmp-font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji";
   --tmp-font-serif: "Iowan Old Style", Palatino, "Palatino Linotype", "Book Antiqua", Georgia, serif;
   --tmp-font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
-  --tmp-font-body: var(--tmp-font-sans);
-  --tmp-font-heading: var(--tmp-font-sans);
+  --tmp-font-body: var(--tmp-font-mono);
+  --tmp-font-heading: var(--tmp-font-mono);
   /* The root stays 16px so every rem in the scale lands on a whole pixel.
      Body copy is --tmp-text-base (15px); this is not the reading size. */
   --tmp-font-size: 16px;
@@ -103,7 +102,7 @@
 
   /* layout */
   --tmp-header-h: 56px;
-  --tmp-measure: 72ch;
+  --tmp-measure: 68ch;
   --tmp-sidebar-w: 260px;
   --tmp-toc-w: 220px;
   --tmp-gutter: 1.25rem;
@@ -131,7 +130,7 @@
 html[data-theme="docs"] {
   --tmp-font-size: 16px;
   --tmp-line-height: var(--tmp-leading-prose);
-  --tmp-measure: 72ch;
+  --tmp-measure: 68ch;
   --tmp-article-pad: 1.5rem;
 }
 
