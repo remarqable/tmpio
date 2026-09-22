@@ -144,3 +144,40 @@ func TestLastOwnerCannotBeRemoved(t *testing.T) {
 	res.Body.Close()
 	assert.Contains(t, res.Header.Get("Location"), "error=")
 }
+
+// TestSwitchOrganization: after joining a second organization you can get back
+// to your own, and you cannot point a session at one you do not belong to.
+func TestSwitchOrganization(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	writePage(t, owner, "/business/theirs.md", "# Theirs\n")
+	token := inviteLink(t, owner, "guest@x.test", models.RoleEditor)
+
+	guest := h.signIn("guest@x.test")
+	writePage(t, guest, "/mine/ours.md", "# Mine\n")
+	res := guest.form("/invite/"+token+"/accept", url.Values{})
+	res.Body.Close()
+
+	// Now in the owner's organization.
+	r := guest.do("GET", "/business/theirs", nil, nil)
+	r.Body.Close()
+	require.Equal(t, 200, r.StatusCode)
+
+	// Their own organization is listed, and switching back works.
+	body := readAll(guest.do("GET", "/admin/members", nil, nil))
+	require.Contains(t, body, "members/switch", "both organizations are offered")
+	ids := regexp.MustCompile(`name="tenant_id" value="(\d+)"`).FindStringSubmatch(body)
+	require.NotNil(t, ids)
+	res = guest.form("/admin/members/switch", url.Values{"tenant_id": {ids[1]}})
+	res.Body.Close()
+	require.Equal(t, 303, res.StatusCode)
+
+	r = guest.do("GET", "/mine/ours", nil, nil)
+	r.Body.Close()
+	assert.Equal(t, 200, r.StatusCode, "back in their own organization")
+
+	// A tenant they do not belong to is refused.
+	res = guest.form("/admin/members/switch", url.Values{"tenant_id": {"999999"}})
+	res.Body.Close()
+	assert.Contains(t, res.Header.Get("Location"), "error=")
+}

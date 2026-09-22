@@ -287,3 +287,48 @@ func lastOwnerGuard(tx *gorm.DB, tenantID, userID int64) error {
 	}
 	return nil
 }
+
+// OrgSummary is one organization this account belongs to.
+type OrgSummary struct {
+	TenantID int64
+	Code     string
+	Name     string
+	Role     string
+	Current  bool
+}
+
+// OrganizationsFor lists the organizations this account is a member of. It
+// runs in the user's own scope, not a tenant's: the whole point is to see
+// across them.
+func OrganizationsFor(ctx context.Context, userID, currentTenantID int64) ([]OrgSummary, error) {
+	var out []OrgSummary
+	err := db.WithTx(ctx, func(tx *gorm.DB) error {
+		if err := db.SetUserScope(tx, userID); err != nil {
+			return err
+		}
+		var rows []struct {
+			TenantID int64
+			Role     string
+			Code     string
+			Name     *string
+		}
+		if err := tx.Table("membership m").
+			Select("m.tenant_id, m.role, t.code, t.name").
+			Joins("JOIN tenant t ON t.id = m.tenant_id").
+			Where("m.user_id = ?", userID).Order("m.id").Scan(&rows).Error; err != nil {
+			return err
+		}
+		for _, r := range rows {
+			name := ""
+			if r.Name != nil {
+				name = *r.Name
+			}
+			out = append(out, OrgSummary{
+				TenantID: r.TenantID, Code: r.Code, Name: name,
+				Role: r.Role, Current: r.TenantID == currentTenantID,
+			})
+		}
+		return nil
+	})
+	return out, err
+}

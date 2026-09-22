@@ -138,6 +138,7 @@ func (d *Deps) SetupRouter(mcpHandler http.Handler) *gin.Engine {
 		admin.POST("/members/invite/revoke", d.AdminInviteRevoke)
 		admin.POST("/members/role", d.AdminMemberRole)
 		admin.POST("/members/remove", d.AdminMemberRemove)
+		admin.POST("/members/switch", d.AdminSwitchOrg)
 		admin.POST("/settings/org", d.AdminSettingsOrg)
 		admin.POST("/settings/ai", d.AdminSettingsAI)
 		admin.POST("/settings/delete-account", middleware.RateLimit(ratelimit.New(5), middleware.KeyByPrincipalOrIP), d.AdminDeleteAccount)

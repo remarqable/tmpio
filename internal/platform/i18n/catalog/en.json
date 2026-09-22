@@ -375,5 +375,8 @@
   "invite.as": "You are signed in as {email}. Accepting joins that account.",
   "invite.sign_in_first": "Sign in first. The account you sign in with is the one that joins.",
   "invite.accept": "Accept the invitation",
-  "invite.invalid": "That invitation has been used, withdrawn or has expired."
+  "invite.invalid": "That invitation has been used, withdrawn or has expired.",
+  "members.orgs": "Your organizations",
+  "members.orgs_current": "you are here",
+  "members.orgs_switch": "Work in this one"
 }

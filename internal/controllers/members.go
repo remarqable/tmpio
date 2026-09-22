@@ -28,14 +28,31 @@ func (d *Deps) AdminMembers(c *gin.Context) {
 	if models.RoleAdmin(a.Prin.Role) {
 		invites, _ = d.Ops.PendingInvites(c.Request.Context(), a.Prin)
 	}
+	orgs, _ := models.OrganizationsFor(c.Request.Context(), a.Prin.UserID, a.Prin.TenantID)
 	sv.Title = i18n.T("en", "members.title")
 	d.render(c, http.StatusOK, "pages/admin/members.html", "layout/site", gin.H{
-		"Site": sv, "Members": members, "Invites": invites,
+		"Site": sv, "Members": members, "Invites": invites, "Orgs": orgs,
 		"IsOwner": models.RoleAdmin(a.Prin.Role),
 		"Roles":   []string{models.RoleOwner, models.RoleEditor, models.RoleViewer},
 		"Invited": c.Query("invited"), "InviteURL": c.Query("link"),
 		"Error": c.Query("error"),
 	})
+}
+
+// AdminSwitchOrg points this session at another organization the account
+// belongs to. The membership check lives in the model, so a forged tenant id
+// gets a refusal rather than someone else's notebook.
+func (d *Deps) AdminSwitchOrg(c *gin.Context) {
+	_, a, ok := d.adminShell(c, "members")
+	if !ok {
+		return
+	}
+	id, _ := strconv.ParseInt(c.PostForm("tenant_id"), 10, 64)
+	if err := models.ActInTenant(c.Request.Context(), a.Prin.SessionID, a.Prin.UserID, id); err != nil {
+		d.flashFail(c, err, "/admin/members")
+		return
+	}
+	c.Redirect(http.StatusSeeOther, "/admin/members")
 }
 
 // AdminInvite creates an invitation and shows its link once.

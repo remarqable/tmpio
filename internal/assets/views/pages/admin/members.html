@@ -5,6 +5,17 @@
   <div class="input-group"><input class="tmp-input" value="{{.InviteURL}}" readonly onclick="this.select()"><button class="tmp-btn tmp-btn-secondary" type="button" data-copy-btn="{{.InviteURL}}">{{template "icon" "copy"}} {{t "common.copy"}}</button></div>
 </div></div>{{end}}
 
+{{if gt (len .Orgs) 1}}<div class="card mb-3"><div class="card-body">
+  <h2 class="h6">{{t "members.orgs"}}</h2>
+  <ul class="list-group list-group-flush">
+  {{range .Orgs}}<li class="list-group-item d-flex justify-content-between align-items-center gap-2">
+    <span>{{if .Name}}{{.Name}}{{else}}o:{{.Code}}{{end}} <span class="badge text-bg-secondary">{{.Role}}</span></span>
+    {{if .Current}}<span class="small tmp-muted">{{t "members.orgs_current"}}</span>
+    {{else}}<form method="post" action="/admin/members/switch" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="tenant_id" value="{{.TenantID}}"><button class="tmp-btn tmp-btn-secondary tmp-btn-sm">{{t "members.orgs_switch"}}</button></form>{{end}}
+  </li>{{end}}
+  </ul>
+</div></div>{{end}}
+
 <div class="card mb-3"><table class="table align-middle mb-0 tmp-stack-sm">
 <thead><tr><th>{{t "members.title"}}</th><th>{{t "members.role"}}</th><th></th></tr></thead>
 <tbody>
