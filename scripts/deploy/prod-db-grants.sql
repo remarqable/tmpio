@@ -1,6 +1,0 @@
--- Run as doadmin against the tmp database (after prod-db.sql).
-ALTER SCHEMA public OWNER TO app_owner;
-GRANT USAGE ON SCHEMA public TO app_user;
-ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
-ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public GRANT USAGE ON SEQUENCES TO app_user;
-ALTER DEFAULT PRIVILEGES FOR ROLE app_owner IN SCHEMA public GRANT EXECUTE ON FUNCTIONS TO app_user;

@@ -139,7 +139,7 @@ Exceeding a limit returns 429 with `Retry-After`. Body size: global `http.MaxByt
 - Metric labels are route templates, methods and status classes. No tenant, user or entry identifiers.
 - Error responses carry a `request_id`; 5xx messages are replaced with `internal error`.
 - `X-Forwarded-For` is believed only from `TRUSTED_PROXIES` (`r.SetTrustedProxies`, default loopback). Gin trusts every proxy unless told otherwise, which would let any caller forge the address behind every per-IP rate limit and the `/metrics` loopback gate. Regression test: `internal/controllers/http_local_auth_test.go:TestForwardedForCannotForgeLoopback`.
-- Reverse proxies must not log `/s/` request paths, or must redact them. The application cannot enforce this. The shipped `scripts/deploy/Caddyfile.tmp.io` deletes `request>uri`, `Authorization` and `Cookie` from its JSON log for this reason; any other proxy in front needs the same treatment.
+- Reverse proxies must not log `/s/` request paths, or must redact them. The application cannot enforce this. The Caddy block `install.sh` writes does not log request paths at all; if you put your own proxy in front, redact `request>uri`, `Authorization` and `Cookie` from its logs.
 - A newly minted sharing link and a newly minted API token travel once through a redirect query string (`?new=`, `?token=`) to the page that displays them. They are never stored in plaintext, but they do reach the browser history and would reach any proxy log that records query strings.
 
 ## Schema changes at startup

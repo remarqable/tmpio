@@ -21,7 +21,7 @@ help: # this
 	    for (i = 1; i <= 4; i++) \
 	      if (rows[order[i]]) printf "\n  %s%s%s\n%s", d, order[i], n, rows[order[i]] \
 	  }' $(MAKEFILE_LIST); \
-	printf '\n  %sHOST=root@example.com make update%s\n\n' "$$D" "$$N"
+	printf '\n  %sself-hosting? the installer on the host does the rest%s\n\n' "$$D" "$$N"
 
 .PHONY: help release installer-smoke update reset kill deploy deploy-status deploy-logs tunnel tunnel-stop run build test test-unit fmt vet migrate migrate-status migrate-down db-init db-start db-stop db-reset check ci
 
@@ -59,9 +59,6 @@ release: ##@Ship publish a version (bare = next patch; V=1.5 = next minor)
 	  echo "deploy it:  make update"; \
 	else echo "the build did not succeed: $$r"; exit 1; fi
 
-update: ##@Ship update a host to the current release
-	@scp -q install.sh $${HOST:-root@tmp.io}:/opt/tmp/install.sh
-	@ssh $${HOST:-root@tmp.io} 'chmod 0755 /opt/tmp/install.sh && /opt/tmp/install.sh update'
 
 
 
