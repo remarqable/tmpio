@@ -116,11 +116,11 @@
   --tmp-z-sidebar: 60;
 }
 
-/* The sidebar widens on large screens so a page title like "Austin Pivot:
-   Office + Apartment Strategy" fits on fewer lines. Below about 1200px the
-   content column is already the tight one, so the rail stays narrow. Both
-   grids read this token, so the search box stays aligned over the content
-   without a second rule. */
+/* The sidebar widens on large screens so more of a long page title like
+   "Austin Pivot: Office + Apartment Strategy" shows before it fades. Below
+   about 1280px the content column is the tight one, so the rail stays narrow.
+   Both grids read this token, so the search box stays aligned over the
+   content without a second rule. */
 @media (min-width: 1280px) { :root { --tmp-sidebar-w: 300px; } }
 @media (min-width: 1360px) { :root { --tmp-sidebar-w: 320px; } }
 
@@ -350,8 +350,6 @@ body.tmp-site {
   gap: 0 var(--tmp-gutter);
   height: 100%;
   padding: 0 var(--tmp-gutter);
-  max-width: 1440px;
-  margin: 0 auto;
 }
 
 .tmp-brand {
@@ -464,8 +462,8 @@ body.tmp-site {
   display: grid;
   grid-template-columns: var(--tmp-sidebar-w) minmax(0, 1fr) var(--tmp-toc-w);
   gap: 0 var(--tmp-gutter);
-  max-width: 1440px;
-  margin: 0 auto;
+  /* Full width at every size, with only the gutter at the edges: the page
+     uses the screen it is given rather than centring a fixed column in it. */
   padding: 0 var(--tmp-gutter);
   align-items: start;
 }
@@ -486,7 +484,7 @@ body.tmp-site {
   max-width: calc(var(--tmp-measure) + 2 * var(--tmp-article-pad) + 2 * var(--tmp-gutter));
 }
 .tmp-body-shared .tmp-main { grid-column: 1; }
-.tmp-body-shared:has(.tmp-article-wide) { max-width: 1440px; }
+.tmp-body-shared:has(.tmp-article-wide) { max-width: none; }
 
 /* sidebar + tree */
 .tmp-sidebar {
@@ -579,9 +577,19 @@ span.tmp-tree-twist { cursor: default; }
   color: var(--tmp-fg-muted);
   border-radius: var(--tmp-radius);
   line-height: var(--tmp-leading-ui);
-  overflow-wrap: anywhere;
 }
-.tmp-tree-label { min-width: 0; overflow-wrap: anywhere; }
+/* One line per name; a long one fades out at the edge of the rail instead of
+   wrapping, so every row is the same height and the tree keeps its shape. The
+   label fills the row, so a short name never reaches the fade. The full name
+   is in the title. */
+.tmp-tree-label {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 1.75rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 1.75rem), transparent);
+}
 .tmp-tree a .ic { flex: none; margin-top: 0.12em; }
 .tmp-tree a:hover { color: var(--tmp-fg); text-decoration: none; }
 .tmp-tree-row:has(a[aria-current="page"]) { background: var(--tmp-note-bg); }
@@ -1054,7 +1062,17 @@ html[data-theme="editorial"] .tmp-content blockquote { font-family: var(--tmp-fo
 /* --------------------------------------------------------------------------
    12. Mobile / narrow viewports
    -------------------------------------------------------------------------- */
-@media (max-width: 899.98px) {
+/* Between 1024 and 1200 the three columns leave the text under 500px, so the
+   table of contents goes first; the headings are still one scroll away. */
+@media (max-width: 1199.98px) {
+  .tmp-body { grid-template-columns: var(--tmp-sidebar-w) minmax(0, 1fr) 0; }
+  .tmp-body:not(:has(> .tmp-sidebar)) { grid-template-columns: 0 minmax(0, 1fr) 0; }
+  .tmp-toc { display: none; }
+}
+
+/* The three-column desktop layout holds from 1024px up and grows from there;
+   below it the rail goes off-canvas. */
+@media (max-width: 1023.98px) {
   .tmp-header-inner { gap: var(--tmp-space-2); }
   .tmp-brand .tmp-badge { display: none; }
   .tmp-nav { gap: var(--tmp-space-1); }
@@ -1218,7 +1236,7 @@ html[data-theme="editorial"] .tmp-content blockquote { font-family: var(--tmp-fo
 .tmp-site .nav-tabs { border-color: var(--tmp-border); }
 .tmp-site .nav-tabs .nav-link { color: var(--tmp-fg-muted); }
 .tmp-site .alert { border-color: var(--tmp-border); }
-@media (max-width: 899.98px) { .tmp-body-wide { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 1023.98px) { .tmp-body-wide { grid-template-columns: minmax(0, 1fr); } }
 .tmp-site a.tmp-tool-primary { color: var(--tmp-bg); background: var(--tmp-fg); border-color: var(--tmp-fg); }
 .tmp-site a.tmp-tool-primary:hover { color: var(--tmp-bg); background: var(--tmp-fg-muted); border-color: var(--tmp-fg-muted); }
 .tmp-nav .tmp-linkbtn { font-size: inherit; text-decoration: none; color: var(--tmp-fg-muted); }
@@ -1283,6 +1301,19 @@ textarea.tmp-editor-area { resize: none; }
 .tmp-site .tmp-btn-sm, .tmp-site button.tmp-btn-sm { font-size: var(--tmp-text-sm); padding: var(--tmp-space-1) var(--tmp-space-2); }
 
 .tmp-dialog-wide { width: min(720px, calc(100vw - 2rem)); }
+.tmp-dialog-busy { width: min(420px, calc(100vw - 2rem)); }
+.tmp-dialog-busy:focus-visible { outline: none; } /* a status with nothing to act on; the ring reads as a control */
+.tmp-busy-body { display: flex; align-items: center; gap: var(--tmp-space-4); padding-bottom: var(--tmp-space-5); }
+.tmp-busy-title { margin: 0; font-weight: 600; }
+.tmp-busy-body .tmp-dialog-text { margin-top: var(--tmp-space-1); font-size: var(--tmp-text-sm); }
+.tmp-spinner { flex: none; width: 1.75rem; height: 1.75rem; border-radius: 50%; border: 3px solid var(--tmp-border-strong); border-top-color: var(--tmp-link); animation: tmp-spin .8s linear infinite; }
+@keyframes tmp-spin { to { transform: rotate(360deg); } }
+/* The site-wide reduced-motion rule stops the spin; a slow fade still says
+   something is happening without the rotation. */
+@media (prefers-reduced-motion: reduce) {
+  .tmp-site .tmp-spinner { animation: tmp-breathe 2s ease-in-out infinite !important; }
+}
+@keyframes tmp-breathe { 50% { opacity: .35; } }
 .tmp-dialog-lead { margin: -.25rem 0 var(--tmp-space-4); }
 .tmp-quick-area { min-height: 12rem; resize: vertical; line-height: var(--tmp-leading-ui); }
 .tmp-dialog-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--tmp-space-3); margin-top: var(--tmp-space-3); }
@@ -1301,19 +1332,6 @@ textarea.tmp-editor-area { resize: none; }
 /* --------------------------------------------------------------------------
    14. Directory listing as a file browser (.tmp-drive)
    --------------------------------------------------------------------------
-.tmp-dialog-busy { width: min(420px, calc(100vw - 2rem)); }
-.tmp-dialog-busy:focus-visible { outline: none; } /* a status with nothing to act on; the ring reads as a control */
-.tmp-busy-body { display: flex; align-items: center; gap: var(--tmp-space-4); padding-bottom: var(--tmp-space-5); }
-.tmp-busy-title { margin: 0; font-weight: 600; }
-.tmp-busy-body .tmp-dialog-text { margin-top: var(--tmp-space-1); font-size: var(--tmp-text-sm); }
-.tmp-spinner { flex: none; width: 1.75rem; height: 1.75rem; border-radius: 50%; border: 3px solid var(--tmp-border-strong); border-top-color: var(--tmp-link); animation: tmp-spin .8s linear infinite; }
-@keyframes tmp-spin { to { transform: rotate(360deg); } }
-/* The site-wide reduced-motion rule stops the spin; a slow fade still says
-   something is happening without the rotation. */
-@media (prefers-reduced-motion: reduce) {
-  .tmp-site .tmp-spinner { animation: tmp-breathe 2s ease-in-out infinite !important; }
-}
-@keyframes tmp-breathe { 50% { opacity: .35; } }
    The folder page is where organising happens, so it gets columns, selection
    and a bulk bar. Sorting is a progressive enhancement: without JS the table
    still renders in its server-side order and every link works.

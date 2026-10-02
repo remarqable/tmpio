@@ -3,7 +3,7 @@
   <div class="tmp-tree-row">
     {{if .Children}}<button class="tmp-tree-twist" type="button" aria-expanded="{{$open}}" aria-label="{{.Title}}" data-tree-toggle>{{template "icon" "chevron"}}</button>
     {{else}}<span class="tmp-tree-twist" aria-hidden="true"></span>{{end}}
-    <a href="{{.URL}}" class="tmp-tree-{{.Kind}}" {{if eq .URL $.Current}}aria-current="page"{{end}}>{{if eq .Kind "directory"}}{{template "icon" "folder"}}{{else}}{{template "icon" "file"}}{{end}}<span class="tmp-tree-label">{{.Title}}</span></a>
+    <a href="{{.URL}}" class="tmp-tree-{{.Kind}}" {{if eq .URL $.Current}}aria-current="page"{{end}}>{{if eq .Kind "directory"}}{{template "icon" "folder"}}{{else}}{{template "icon" "file"}}{{end}}<span class="tmp-tree-label" title="{{.Title}}">{{.Title}}</span></a>
     {{if .Children}}<span class="tmp-tree-count">{{.Count}}</span>{{end}}
   </div>
   {{if .Children}}{{template "partials/_tree.html" (dict "Nodes" .Children "Current" $.Current)}}{{end}}
