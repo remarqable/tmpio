@@ -22,7 +22,7 @@
   <h2 class="h6">{{t "refile.site"}}</h2>
   <p class="small tmp-muted mb-2">{{t "refile.site_help"}}</p>
   {{if .Tidied}}<p class="small mb-2">{{t "refile.tidied" "moved" .Tidied "kept" .Kept}}{{if .More}} {{t "refile.more"}}{{end}}</p>{{end}}
-  <form method="post" action="/bulk" data-confirm="{{t "refile.site_confirm"}}"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="dir" value="/"><input type="hidden" name="action" value="refile-site"><button class="tmp-btn tmp-btn-secondary">{{template "icon" "sparkle"}} {{t "refile.site"}}</button></form>
+  <form method="post" action="/bulk" data-confirm="{{t "refile.site_confirm"}}" data-busy="{{t "refile.busy_site"}}"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="dir" value="/"><input type="hidden" name="action" value="refile-site"><button class="tmp-btn tmp-btn-secondary">{{template "icon" "sparkle"}} {{t "refile.site"}}</button></form>
 </div></div>
 
 <div class="card"><div class="card-header">{{t "dash.recent"}}</div>

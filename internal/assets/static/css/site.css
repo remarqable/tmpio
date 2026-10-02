@@ -1301,6 +1301,19 @@ textarea.tmp-editor-area { resize: none; }
 /* --------------------------------------------------------------------------
    14. Directory listing as a file browser (.tmp-drive)
    --------------------------------------------------------------------------
+.tmp-dialog-busy { width: min(420px, calc(100vw - 2rem)); }
+.tmp-dialog-busy:focus-visible { outline: none; } /* a status with nothing to act on; the ring reads as a control */
+.tmp-busy-body { display: flex; align-items: center; gap: var(--tmp-space-4); padding-bottom: var(--tmp-space-5); }
+.tmp-busy-title { margin: 0; font-weight: 600; }
+.tmp-busy-body .tmp-dialog-text { margin-top: var(--tmp-space-1); font-size: var(--tmp-text-sm); }
+.tmp-spinner { flex: none; width: 1.75rem; height: 1.75rem; border-radius: 50%; border: 3px solid var(--tmp-border-strong); border-top-color: var(--tmp-link); animation: tmp-spin .8s linear infinite; }
+@keyframes tmp-spin { to { transform: rotate(360deg); } }
+/* The site-wide reduced-motion rule stops the spin; a slow fade still says
+   something is happening without the rotation. */
+@media (prefers-reduced-motion: reduce) {
+  .tmp-site .tmp-spinner { animation: tmp-breathe 2s ease-in-out infinite !important; }
+}
+@keyframes tmp-breathe { 50% { opacity: .35; } }
    The folder page is where organising happens, so it gets columns, selection
    and a bulk bar. Sorting is a progressive enhancement: without JS the table
    still renders in its server-side order and every link works.

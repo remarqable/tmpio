@@ -17,7 +17,7 @@
       <a class="tmp-btn tmp-btn-secondary" href="/history{{.Site.Entry.HTMLPath}}">{{template "icon" "history"}} {{t "content.history"}}</a>
       <a class="tmp-btn tmp-btn-secondary" href="/share{{.Site.Entry.HTMLPath}}">{{template "icon" "share"}} {{t "content.share"}}</a>
       <button class="tmp-btn tmp-btn-secondary" type="button" data-open-dialog="tmp-move">{{template "icon" "move"}} {{t "content.move"}}</button>
-      <form method="post" action="/refile{{.Site.Entry.HTMLPath}}" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="tmp-btn tmp-btn-secondary" title="{{t "refile.help"}}">{{template "icon" "sparkle"}} {{t "refile.action"}}</button></form>
+      <form method="post" action="/refile{{.Site.Entry.HTMLPath}}" class="tmp-inline-form" data-busy="{{t "refile.busy"}}"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="tmp-btn tmp-btn-secondary" title="{{t "refile.help"}}">{{template "icon" "sparkle"}} {{t "refile.action"}}</button></form>
       <button class="tmp-btn tmp-btn-secondary" type="button" data-copy-btn="{{.Origin}}{{.OrgPrefix}}{{.Site.Entry.HTMLPath}}">{{template "icon" "copy"}} {{t "content.copy_link"}}</button>
       <form method="post" action="/delete{{.Site.Entry.HTMLPath}}" data-confirm="{{t "content.delete_confirm"}}" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="expected_revision" value="{{.Site.Entry.CurrentRevision}}"><button class="tmp-btn tmp-btn-danger">{{template "icon" "trash"}} {{t "content.delete"}}</button></form>
     </div>

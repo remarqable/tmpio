@@ -22,6 +22,36 @@
     var closer = e.target.closest('[data-close-dialog]');
     if (closer) { var d = closer.closest('dialog'); if (d) d.close(); }
   });
+  // Busy dialog for slow forms (data-busy="message"): shown once the form is
+  // really going, and not dismissable, because the request carries on whether
+  // or not the dialog is open and a second click would start it again.
+  var busyDlg = document.getElementById('tmp-busy');
+  var busy = false;
+  function showBusy(form) {
+    var msg = form.getAttribute('data-busy');
+    if (!msg) return;
+    busy = true;
+    form.querySelectorAll('button').forEach(function (b) { b.disabled = true; });
+    if (!busyDlg || !busyDlg.showModal) return;
+    busyDlg.querySelector('[data-busy-text]').textContent = msg;
+    if (!busyDlg.open) busyDlg.showModal();
+  }
+  if (busyDlg) {
+    // Chrome lets Escape close a modal even when its cancel event is
+    // cancelled, unless the page has been interacted with since, so stop the
+    // key itself and reopen if anything closes the dialog anyway.
+    busyDlg.addEventListener('cancel', function (e) { e.preventDefault(); });
+    busyDlg.addEventListener('close', function () { if (busy) busyDlg.showModal(); });
+    document.addEventListener('keydown', function (e) { if (busy && e.key === 'Escape') e.preventDefault(); }, true);
+  }
+  // Coming back with the back button restores the page as it was left, open
+  // dialog and disabled buttons included.
+  window.addEventListener('pageshow', function (e) {
+    if (!e.persisted) return;
+    busy = false;
+    if (busyDlg && busyDlg.open) busyDlg.close();
+    document.querySelectorAll('form[data-busy] button').forEach(function (b) { b.disabled = false; });
+  });
   // Confirmation dialog for destructive forms.
   var confirmDlg = document.getElementById('tmp-confirm');
   document.addEventListener('submit', function (e) {
@@ -37,11 +67,19 @@
     confirmDlg.showModal();
     confirmDlg.addEventListener('close', function onClose() {
       confirmDlg.removeEventListener('close', onClose);
-      if (confirmDlg.returnValue === 'ok') { form.dataset.confirmed = '1'; form.submit(); }
+      if (confirmDlg.returnValue === 'ok') { form.dataset.confirmed = '1'; showBusy(form); form.submit(); }
     });
   });
-  // Close dialogs on backdrop click.
+  // A form without a confirmation step goes straight to busy. This runs after
+  // the confirmation listener, which cancels the first submit of a form that
+  // still has to ask; form.submit() after the answer fires no event, so that
+  // path calls showBusy itself.
+  document.addEventListener('submit', function (e) {
+    if (!e.defaultPrevented && e.target.hasAttribute('data-busy')) showBusy(e.target);
+  });
+  // Close dialogs on backdrop click, except the busy one.
   document.addEventListener('click', function (e) {
+    if (e.target === busyDlg) return;
     if (e.target instanceof HTMLDialogElement && e.target.open) { var r = e.target.getBoundingClientRect(); if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) e.target.close(); }
   });
 })();
