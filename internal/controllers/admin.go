@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/http"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -156,7 +157,10 @@ func (d *Deps) AdminSettings(c *gin.Context) {
 // AdminSettingsAI saves the owner's opt-in to AI-assisted filing.
 func (d *Deps) AdminSettingsAI(c *gin.Context) {
 	_, t := owner(c)
-	enabled := c.PostForm("ai_filing") == "1"
+	// The form sends a hidden 0 ahead of the checkbox so that unticking it
+	// posts something; a ticked box adds a 1 after it. PostForm returns the
+	// first value, which is always the 0, so look for the 1 anywhere.
+	enabled := slices.Contains(c.PostFormArray("ai_filing"), "1")
 	if err := models.SetTenantAIFiling(c.Request.Context(), t.ID, enabled); err != nil {
 		d.flashFail(c, err, "/admin/settings")
 		return

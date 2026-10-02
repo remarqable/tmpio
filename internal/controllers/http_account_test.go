@@ -31,12 +31,14 @@ func TestAIFilingOptInAndAccountDeletion(t *testing.T) {
 	tn, err := models.GetTenantByCode(ctx, c.org)
 	require.NoError(t, err)
 	require.False(t, tn.AIFilingEnabled)
-	res := c.form("/admin/settings/ai", url.Values{"ai_filing": {"1"}})
+	// Exactly what a browser sends: the hidden 0, then the ticked box's 1.
+	// Posting a lone "1" here hid a bug where the box could never be ticked.
+	res := c.form("/admin/settings/ai", url.Values{"ai_filing": {"0", "1"}})
 	res.Body.Close()
 	require.Equal(t, 303, res.StatusCode)
 	tn, err = models.GetTenantByCode(ctx, c.org)
 	require.NoError(t, err)
-	require.True(t, tn.AIFilingEnabled)
+	require.True(t, tn.AIFilingEnabled, "a ticked box must switch filing on")
 	res = c.form("/admin/settings/ai", url.Values{"ai_filing": {"0"}})
 	res.Body.Close()
 	tn, err = models.GetTenantByCode(ctx, c.org)
