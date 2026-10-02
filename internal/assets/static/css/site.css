@@ -116,13 +116,11 @@
   --tmp-z-sidebar: 60;
 }
 
-/* The sidebar takes the main column's slack rather than the article's measure.
-   The article is capped at --tmp-measure and left-aligned, so past about
-   1200px there is empty space to the right of the text doing nothing, and a
-   page title like "Austin Pivot: Office + Apartment Strategy" can have some
-   of it. Below that the content column is already the tight one, so the rail
-   stays narrow. Both grids read this token, so the search box stays aligned
-   over the content without a second rule. */
+/* The sidebar widens on large screens so a page title like "Austin Pivot:
+   Office + Apartment Strategy" fits on fewer lines. Below about 1200px the
+   content column is already the tight one, so the rail stays narrow. Both
+   grids read this token, so the search box stays aligned over the content
+   without a second rule. */
 @media (min-width: 1280px) { :root { --tmp-sidebar-w: 300px; } }
 @media (min-width: 1360px) { :root { --tmp-sidebar-w: 320px; } }
 
@@ -671,7 +669,7 @@ span.tmp-tree-twist { cursor: default; }
    -------------------------------------------------------------------------- */
 .tmp-main { padding: var(--tmp-space-5) 0 4rem; }
 
-.tmp-crumbs { max-width: var(--tmp-measure); margin: 0 auto var(--tmp-space-3) 0; padding: 0 var(--tmp-article-pad); font-size: var(--tmp-text-sm); }
+.tmp-crumbs { margin: 0 auto var(--tmp-space-3) 0; padding: 0 var(--tmp-article-pad); font-size: var(--tmp-text-sm); }
 .tmp-crumbs ol {
   display: flex;
   flex-wrap: wrap;
@@ -691,17 +689,13 @@ span.tmp-tree-twist { cursor: default; }
 .tmp-article {
   /* Sits against the sidebar rather than floating in the middle of the main
      column, so the eye travels a short way from the tree to the text instead
-     of across a gap of empty page. The measure is applied to the parts that
-     are read - the prose, the title, the lead - rather than to the article
-     box, so the toolbar can use the width the column actually has. */
+     of across a gap of empty page. The text fills the column between the
+     sidebar and the table of contents rather than stopping at a fixed
+     measure, so wide tables and code have room and the page has no dead
+     band on the right. Shared pages keep their own reading width. */
   margin: 0 auto 0 0;
   padding: 0 var(--tmp-article-pad);
 }
-.tmp-article > * { max-width: var(--tmp-measure); }
-.tmp-article > .tmp-article-header { max-width: none; }
-.tmp-article-header > h1,
-.tmp-article-header > .tmp-lead,
-.tmp-article-header > .tmp-meta { max-width: var(--tmp-measure); }
 .tmp-article-wide { max-width: none; }
 
 .tmp-article-header { margin-bottom: var(--tmp-space-8); }
