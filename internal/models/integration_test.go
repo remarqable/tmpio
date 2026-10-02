@@ -488,13 +488,21 @@ func TestMoveAliasAndRewrite(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "/notes/deep/circle.md", sc.Entry.Path)
 
-	// Destination occupied, alias reuse and cross-kind moves are refused.
+	// An occupied destination is refused.
 	_, err = o.Move(ctx, p, MoveInput{From: "/notes/deep/circle.md", To: "/research/other.md", ExpectedRevision: 2, RequestID: rid()})
 	assert.True(t, errors.Is(err, errors.CodePathConflict))
-	_, err = o.Move(ctx, p, MoveInput{From: "/notes/deep/circle.md", To: "/research/circle.md", ExpectedRevision: 2, RequestID: rid()})
-	assert.True(t, errors.Is(err, errors.CodePathConflict), "aliases cannot be reused as new paths")
-	_, err = o.Write(ctx, p, WriteInput{Path: "/research/circle.md", Content: "# new\n", RequestID: rid()})
-	assert.True(t, errors.Is(err, errors.CodePathConflict), "aliases cannot be reused by writes either")
+
+	// A redirect gives way to a new document at its address, so a moved page
+	// never blocks the name it left behind. The moved page is untouched.
+	fresh, err := o.Write(ctx, p, WriteInput{Path: "/research/circle.md", Content: "# new\n", RequestID: rid()})
+	require.NoError(t, err, "an old address can be reused")
+	assert.NotEqual(t, circleID, fresh.Entry.ID)
+	res, err = o.Resolve(ctx, tn.ID, "/research/circle")
+	require.NoError(t, err)
+	assert.Empty(t, res.Redirect, "the new page answers, not the redirect")
+	moved, err := o.Read(ctx, p, "/notes/deep/circle.md", 0)
+	require.NoError(t, err)
+	assert.Contains(t, moved.Source, "Circle")
 }
 
 func TestDeleteRestoreAndShareRevocation(t *testing.T) {

@@ -429,7 +429,9 @@ func dirTitle(d string) string {
 	return strings.ToUpper(name[:1]) + name[1:]
 }
 
-// checkRenderedFree ensures neither an entry nor an alias occupies the rendered path.
+// checkRenderedFree ensures no entry occupies the rendered path. A redirect
+// left there by an earlier move gives way: the new document takes the address
+// and the old one stays reachable at its own.
 func checkRenderedFree(tx *gorm.DB, info *PathInfo) error {
 	var n int64
 	if err := tx.Model(&Entry{}).Where("rendered_path = ? AND path <> ?", info.Rendered, info.Path).Count(&n).Error; err != nil {
@@ -438,13 +440,7 @@ func checkRenderedFree(tx *gorm.DB, info *PathInfo) error {
 	if n > 0 {
 		return errors.Newf(errors.CodePathConflict, "%s would collide with an existing entry in the rendered namespace", info.Path)
 	}
-	if err := tx.Model(&PathAlias{}).Where("rendered_path = ? OR path = ?", info.Rendered, info.Path).Count(&n).Error; err != nil {
-		return err
-	}
-	if n > 0 {
-		return errors.Newf(errors.CodePathConflict, "%s is a redirect left by a previous move and cannot be reused", info.Path)
-	}
-	return nil
+	return tx.Where("rendered_path = ? OR path = ?", info.Rendered, info.Path).Delete(&PathAlias{}).Error
 }
 
 func (o *Ops) checkPageQuota(tx *gorm.DB, kind string) error {
