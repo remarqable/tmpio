@@ -342,8 +342,14 @@ func (s *Server) register() {
 				}
 			}
 			if decide {
+				// The summary is a history line ("Added the Q3 numbers"), not a
+				// file name, so it goes in as a hint. As a file name it would
+				// outrank the page's own heading and become its address.
+				if sum := strings.TrimSpace(in.Summary); sum != "" {
+					hint = strings.TrimSpace(hint + " " + sum)
+				}
 				pl, err := s.ops.SuggestPlacement(ctx, p, models.PlacementInput{
-					Content: in.Content, Filename: in.Summary, Hint: hint,
+					Content: in.Content, Hint: hint,
 				})
 				if err != nil {
 					return toolError(err), nil, nil

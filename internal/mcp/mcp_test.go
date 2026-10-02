@@ -177,6 +177,9 @@ func TestMCPProtocolAndTools(t *testing.T) {
 	auto2, isErr := call(t, sess, "tmp_write", map[string]any{"path": "auto", "content": "# Circle pricing\n\nSecond note about Circle research.\n", "expected_revision": 0, "request_id": "11111111-2222-4333-8444-5555555555c7"})
 	require.False(t, isErr, auto2)
 	assert.Equal(t, "/research/circle-pricing-2.md", auto2["path"], "auto never overwrites: an occupied path gets a numbered name")
+	summed, isErr := call(t, sess, "tmp_write", map[string]any{"path": "auto", "content": "# Circle roadmap\n\nWhere Circle research goes next.\n", "summary": "Added the Circle roadmap and a clarification", "expected_revision": 0, "request_id": "11111111-2222-4333-8444-5555555555c8"})
+	require.False(t, isErr, summed)
+	assert.Equal(t, "/research/circle-roadmap.md", summed["path"], "the page is named after its heading, not the history summary")
 
 	// Retry with the same request id is idempotent.
 	out, isErr = call(t, sess, "tmp_write", map[string]any{"path": written, "content": "---\ntitle: Circle\n---\n\n# Circle\n\nFrom MCP.\n", "expected_revision": 0, "request_id": "11111111-2222-4333-8444-555555555555"})
@@ -196,7 +199,7 @@ func TestMCPProtocolAndTools(t *testing.T) {
 	assert.Contains(t, out["content"], "From MCP")
 	out, isErr = call(t, sess, "tmp_list", map[string]any{"path": "/research"})
 	require.False(t, isErr)
-	assert.Len(t, out["entries"], 2, "the two auto-filed pages; circle was filed elsewhere")
+	assert.Len(t, out["entries"], 3, "the three auto-filed pages; circle was filed elsewhere")
 	out, isErr = call(t, sess, "tmp_search", map[string]any{"query": "MCP"})
 	require.False(t, isErr)
 	assert.Len(t, out["hits"], 1)
