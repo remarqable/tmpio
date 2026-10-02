@@ -1,7 +1,7 @@
 {{define "content"}}
 {{if .Site.Breadcrumbs}}<nav class="tmp-crumbs" aria-label="{{t "site.breadcrumb"}}"><ol>{{range .Site.Breadcrumbs}}<li>{{if .Last}}<span aria-current="page">{{.Title}}</span>{{else}}<a href="{{.URL}}">{{.Title}}</a>{{end}}</li>{{end}}</ol></nav>{{end}}
 {{if .Saved}}<div class="tmp-callout tmp-callout-tip" role="status"><div class="tmp-callout-body">{{t "editor.saved" "rev" .Saved}}</div></div>{{end}}
-{{if .Refiled}}<div class="tmp-callout tmp-callout-tip" role="status"><div class="tmp-callout-body">{{if eq .Refiled "kept"}}{{t "refile.kept"}}{{else}}{{t "refile.moved" "from" .Refiled}}{{end}}</div></div>{{end}}
+{{if .Refiled}}<div class="tmp-callout tmp-callout-tip" role="status"><div class="tmp-callout-body">{{if eq .Refiled "kept"}}{{t "refile.kept"}}{{else if eq .Refiled "nohome"}}{{t "refile.nohome"}}{{else if eq .Refiled "nohome-noai"}}{{t "refile.nohome_noai"}}{{else if eq .Refiled "nohome-optout"}}{{t "refile.nohome_optout"}}{{else}}{{t "refile.moved" "from" .Refiled}}{{end}}</div></div>{{end}}
 <article class="tmp-article">
   <header class="tmp-article-header">
     <h1>{{.Site.Page.Title}}</h1>

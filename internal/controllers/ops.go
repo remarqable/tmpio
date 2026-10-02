@@ -650,7 +650,7 @@ func (d *Deps) BulkEntry(c *gin.Context) {
 				if !ok {
 					return errors.New(errors.CodeNotFound, "no such document")
 				}
-				moved, err := d.refileOne(c, a, ent)
+				moved, _, err := d.refileOne(c, a, ent)
 				if err != nil {
 					return err
 				}
@@ -696,14 +696,15 @@ func (d *Deps) BulkEntry(c *gin.Context) {
 const refileBatchMax = 100
 
 // refileOne asks where a document would go if it arrived today and moves it
-// there. Returns the new path, or "" when it is already where it belongs.
-func (d *Deps) refileOne(c *gin.Context, a *addr, e *models.Entry) (string, error) {
+// there. Returns the new path, or "" when it stays put, with the placement so
+// the caller can tell "already in the right folder" from "no better idea".
+func (d *Deps) refileOne(c *gin.Context, a *addr, e *models.Entry) (string, *models.Placement, error) {
 	if e.Kind != models.KindPage && e.Kind != models.KindFile {
-		return "", errors.New(errors.CodeValidationFailed, "only documents can be refiled")
+		return "", nil, errors.New(errors.CodeValidationFailed, "only documents can be refiled")
 	}
 	doc, err := d.Ops.Read(c.Request.Context(), a.Prin, e.Path, 0)
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	pl, err := d.Ops.SuggestPlacement(c.Request.Context(), a.Prin, models.PlacementInput{
 		Content:  doc.Source,
@@ -711,19 +712,19 @@ func (d *Deps) refileOne(c *gin.Context, a *addr, e *models.Entry) (string, erro
 		Refiling: e.Path,
 	})
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
 	to := pl.UniquePlacementPath()
 	if to == e.Path || parentDir(to) == parentDir(e.Path) {
-		return "", nil
+		return "", pl, nil
 	}
 	res, err := d.Ops.Move(c.Request.Context(), a.Prin, models.MoveInput{
 		From: e.Path, To: to, ExpectedRevision: e.CurrentRevision, RequestID: uuidV4(),
 	})
 	if err != nil {
-		return "", err
+		return "", nil, err
 	}
-	return res.Entry.Path, nil
+	return res.Entry.Path, pl, nil
 }
 
 // RefileEntry asks where this document would go if it arrived today, and moves
@@ -741,13 +742,27 @@ func (d *Deps) RefileEntry(c *gin.Context) {
 		return
 	}
 	from := parentDir(e.Path)
-	moved, err := d.refileOne(c, a, e)
+	moved, pl, err := d.refileOne(c, a, e)
 	if err != nil {
 		d.flashFail(c, err, e.HTMLPath())
 		return
 	}
 	if moved == "" {
-		c.Redirect(http.StatusSeeOther, e.HTMLPath()+"?refiled=kept")
+		// The inbox is where documents go when nothing fits, so an answer of
+		// "the inbox" for a page already there is no answer, not a verdict
+		// that it belongs.
+		outcome := "kept"
+		if pl.InInbox() {
+			outcome = "nohome"
+			if pl.Source == "heuristic" {
+				// Say which switch is off: the server's or this organization's.
+				outcome = "nohome-noai"
+				if d.Ops.AI != nil && d.Ops.AI.Enabled(c.Request.Context()) {
+					outcome = "nohome-optout"
+				}
+			}
+		}
+		c.Redirect(http.StatusSeeOther, e.HTMLPath()+"?refiled="+outcome)
 		return
 	}
 	c.Redirect(http.StatusSeeOther, (&models.Entry{Kind: e.Kind, Path: moved}).HTMLPath()+"?refiled="+url.QueryEscape(from))

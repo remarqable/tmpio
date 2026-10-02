@@ -299,6 +299,27 @@ func TestRefileMovesADocument(t *testing.T) {
 	assert.Less(t, old.StatusCode, 400, "the old address must not 404 after a refile")
 }
 
+// TestRefileInTheInboxIsNotAVerdict: the inbox is where things go when nothing
+// fits, so a page already there that still fits nothing must not be told it is
+// "already where it belongs". That is what the button said on a page about a
+// product roll-up that had an obvious home the rules could not see.
+func TestRefileInTheInboxIsNotAVerdict(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	writePage(t, owner, "/inbox/stray.md", "# Stray\n\nSomething with no obvious home.\n")
+
+	res := owner.form("/refile/inbox/stray", url.Values{})
+	res.Body.Close()
+	require.Equal(t, 303, res.StatusCode)
+	loc := res.Header.Get("Location")
+	assert.Contains(t, loc, "refiled=nohome-noai", "no model ran, so it says why it found nothing")
+
+	page := owner.do("GET", loc, nil, nil)
+	body := readAll(page)
+	assert.NotContains(t, body, "already where it belongs")
+	assert.Contains(t, body, "no model configured")
+}
+
 // TestRefileRefusesADirectory: Ops.Move takes pages and assets only, so the
 // button has to say no rather than fail halfway.
 func TestRefileRefusesADirectory(t *testing.T) {

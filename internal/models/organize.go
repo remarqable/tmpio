@@ -397,6 +397,10 @@ func heuristicPlacement(snap *treeSnapshot, in PlacementInput, ext string) *Plac
 	return &Placement{Directory: dir, Name: base + ext, Title: title, Reason: reason, Source: "heuristic"}
 }
 
+// InInbox reports whether the placement fell back to the inbox, which means no
+// folder fitted rather than that the inbox is the right home.
+func (pl *Placement) InInbox() bool { return pl != nil && pl.Directory == placementInbox }
+
 // finishPlacement validates the assembled path against the grammar and the live
 // tree, resolves collisions to a free variant and fills the derived fields.
 func (o *Ops) finishPlacement(ctx context.Context, p Principal, snap *treeSnapshot, pl *Placement) {
