@@ -93,22 +93,53 @@ type ExternalIdentity struct {
 // new user gets exactly one organization, an owner membership, and the initial
 // site files in the same transaction. Repeat sign-ins create nothing. When
 // allowCreate is false an unknown identity is refused with CodeSignupsClosed
-// and nothing is written.
+// and nothing is written, unless its address is on the signup allowlist.
 func SignIn(ctx context.Context, ext ExternalIdentity, initialConfig string, initialIndex string, allowCreate bool) (*User, *Tenant, bool, error) {
+	r, err := SignInWith(ctx, ext, initialConfig, initialIndex, CreatePolicy{Open: allowCreate})
+	if err != nil {
+		return nil, nil, false, err
+	}
+	return r.User, r.Tenant, r.Created, nil
+}
+
+// CreatePolicy says when a first sign-in may create an account.
+type CreatePolicy struct {
+	// Open: sign-ups are open to anyone.
+	Open bool
+	// InviteToken is an invitation the visitor arrived with. While sign-ups
+	// are closed it lets an address that is not on the allowlist in, but only
+	// as a member of the inviting organization: they get no site of their
+	// own, or an invitation would quietly be a full account.
+	InviteToken string
+}
+
+// SignInResult is what SignInWith did.
+type SignInResult struct {
+	User    *User
+	Tenant  *Tenant
+	Created bool
+	// JoinedByInvite: the account was created by accepting InviteToken, which
+	// is now used up. The caller should not send them to the invite page.
+	JoinedByInvite bool
+}
+
+// SignInWith is SignIn with the full creation policy.
+func SignInWith(ctx context.Context, ext ExternalIdentity, initialConfig string, initialIndex string, pol CreatePolicy) (*SignInResult, error) {
 	if ext.Issuer == "" || ext.Subject == "" {
-		return nil, nil, false, errors.New(errors.CodeUnauthorized, "identity is incomplete")
+		return nil, errors.New(errors.CodeUnauthorized, "identity is incomplete")
 	}
 	// The verified-address rule exists to stop an identity provider asserting
 	// someone else's account. An identity this server issued itself — the
 	// local owner, or the development bypass — has no provider to distrust and
 	// no address to verify: "admin" is a perfectly good identity.
 	if !SelfIssued(ext.Issuer) && !ext.EmailVerified {
-		return nil, nil, false, errors.New(errors.CodeUnauthorized, "a verified email address is required")
+		return nil, errors.New(errors.CodeUnauthorized, "a verified email address is required")
 	}
 	var (
 		user    User
 		tenant  Tenant
 		created bool
+		joined  bool
 	)
 	err := db.WithTx(ctx, func(tx *gorm.DB) error {
 		var ident Identity
@@ -139,8 +170,17 @@ func SignIn(ctx context.Context, ext ExternalIdentity, initialConfig string, ini
 			tenant = *t
 			return nil
 		case goerrors.Is(err, gorm.ErrRecordNotFound):
-			if !allowCreate {
-				return errors.New(errors.CodeSignupsClosed, "new accounts are not being created right now")
+			if !pol.Open {
+				ok, err := signupAllowed(tx, ext.Email)
+				if err != nil {
+					return err
+				}
+				if !ok {
+					if pol.InviteToken == "" {
+						return errors.New(errors.CodeSignupsClosed, "new accounts are not being created right now")
+					}
+					joined = true
+				}
 			}
 		default:
 			return err
@@ -154,6 +194,24 @@ func SignIn(ctx context.Context, ext ExternalIdentity, initialConfig string, ini
 		if err := tx.Create(&ident).Error; err != nil {
 			return err
 		}
+		if joined {
+			// The invitation is accepted in the same transaction that creates
+			// the account, so a link that turns out to be used, revoked or
+			// expired leaves nothing behind.
+			tid, err := acceptInviteTx(tx, pol.InviteToken, user.ID)
+			if err != nil {
+				return err
+			}
+			if tid == 0 {
+				return errors.New(errors.CodeSignupsClosed, "that invitation is not valid any more")
+			}
+			t, _, err := currentTenantForUser(tx, user.ID, tid)
+			if err != nil {
+				return err
+			}
+			tenant = *t
+			return nil
+		}
 		t, err := createTenantWithOwner(tx, user.ID, initialConfig, initialIndex)
 		if err != nil {
 			return err
@@ -162,9 +220,9 @@ func SignIn(ctx context.Context, ext ExternalIdentity, initialConfig string, ini
 		return nil
 	})
 	if err != nil {
-		return nil, nil, false, err
+		return nil, err
 	}
-	return &user, &tenant, created, nil
+	return &SignInResult{User: &user, Tenant: &tenant, Created: created, JoinedByInvite: joined}, nil
 }
 
 // createTenantWithOwner creates the organization, owner membership and initial

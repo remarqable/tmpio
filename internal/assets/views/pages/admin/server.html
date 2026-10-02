@@ -37,6 +37,40 @@
   <button class="tmp-btn">{{template "icon" "check"}} {{t "server.ai_save"}}</button>
 </form>
 </div></div>
+
+<div class="card mt-3" id="signups"><div class="card-body">
+<h2 class="h6">{{t "server.signups_title"}}</h2>
+{{if .SignupsOpen}}
+<p class="form-text">{{t "server.signups_open"}}</p>
+{{else}}
+<p class="form-text">{{t "server.signups_closed"}}</p>
+{{end}}
+{{if .Allowed}}<div class="alert alert-success py-2 small">{{t "server.allow_added" "email" .Allowed}}</div>{{end}}
+{{if .AllowError}}<div class="alert alert-danger py-2 small">{{.AllowError}}</div>{{end}}
+<form method="post" action="/admin/server/allow" class="row g-2 align-items-end mb-3">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <div class="col-sm-6"><label class="form-label" for="allow-email">{{t "server.allow_email"}}</label><input class="form-control" id="allow-email" name="email" type="email" required autocomplete="off" spellcheck="false" placeholder="someone@example.com"></div>
+  <div class="col-sm-4"><label class="form-label" for="allow-note">{{t "server.allow_note"}}</label><input class="form-control" id="allow-note" name="note" autocomplete="off" placeholder="{{t "server.allow_note_placeholder"}}"></div>
+  <div class="col-sm-2"><button class="tmp-btn w-100">{{template "icon" "plus"}} {{t "server.allow_add"}}</button></div>
+</form>
+{{if .Allow}}
+<table class="table table-sm align-middle small mb-0">
+  <thead><tr><th>{{t "server.allow_email"}}</th><th>{{t "server.allow_note"}}</th><th>{{t "server.allow_status"}}</th><th></th></tr></thead>
+  <tbody>
+  {{range .Allow}}
+    <tr>
+      <td class="font-monospace">{{.Email}}</td>
+      <td>{{.Note}}</td>
+      <td>{{if .UsedAt}}{{t "server.allow_used"}}{{else}}{{t "server.allow_waiting"}}{{end}}</td>
+      <td class="text-end"><form method="post" action="/admin/server/allow/remove" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{$.CSRF}}"><input type="hidden" name="email" value="{{.Email}}"><button class="tmp-btn tmp-btn-secondary">{{t "server.allow_remove"}}</button></form></td>
+    </tr>
+  {{end}}
+  </tbody>
+</table>
+{{else}}
+<p class="form-text mb-0">{{t "server.allow_empty"}}</p>
+{{end}}
+</div></div>
 </div>
 </div>
 {{end}}

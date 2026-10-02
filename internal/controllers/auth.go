@@ -52,6 +52,7 @@ func (d *Deps) Login(c *gin.Context) {
 	middleware.NoStore(c)
 	d.render(c, http.StatusOK, "pages/auth/landing.html", "layout/auth", gin.H{
 		"Return": ret, "LoginPage": true, "SignInFailed": c.Query("failed") == "1",
+		"SignupsClosed": c.Query("closed") == "1",
 	})
 }
 
@@ -170,10 +171,13 @@ func (d *Deps) LocalLogin(c *gin.Context) {
 
 func (d *Deps) finishSignIn(c *gin.Context, ident models.ExternalIdentity, returnPath string, oauthReq []byte) {
 	ctx := c.Request.Context()
-	user, _, created, err := models.SignIn(ctx, ident, models.DefaultSiteConfigYAML, models.WelcomeMarkdown(d.Cfg.AppOrigin), d.Cfg.SignupsEnabled)
+	// Someone who followed an invitation link is on their way back to it. While
+	// sign-ups are closed, that link is what lets them in.
+	pol := models.CreatePolicy{Open: d.Cfg.SignupsEnabled, InviteToken: inviteTokenFrom(returnPath)}
+	res, err := models.SignInWith(ctx, ident, models.DefaultSiteConfigYAML, models.WelcomeMarkdown(d.Cfg.AppOrigin), pol)
 	if err != nil {
 		if errors.Is(err, errors.CodeSignupsClosed) {
-			obs.From(ctx).Info().Str("event", "auth.signup_refused").Msg("")
+			obs.From(ctx).Info().Str("event", "auth.signup_refused").Bool("invite", pol.InviteToken != "").Msg("")
 			middleware.NoStore(c)
 			c.Redirect(http.StatusFound, "/login?closed=1")
 			return
@@ -182,7 +186,23 @@ func (d *Deps) finishSignIn(c *gin.Context, ident models.ExternalIdentity, retur
 		d.authError(c)
 		return
 	}
-	d.startSession(c, user, created, returnPath, oauthReq)
+	if res.JoinedByInvite {
+		// The invitation was accepted as part of creating the account; the
+		// invite page would only say it has been used.
+		obs.From(ctx).Info().Str("event", "auth.joined_by_invite").Int64("tenant_id", res.Tenant.ID).Msg("")
+		returnPath = "/"
+	}
+	d.startSession(c, res.User, res.Created, returnPath, oauthReq)
+}
+
+// inviteTokenFrom returns the token in a return path of the form
+// /invite/<token>, or "".
+func inviteTokenFrom(returnPath string) string {
+	tok, ok := strings.CutPrefix(returnPath, "/invite/")
+	if !ok || tok == "" || strings.ContainsAny(tok, "/?#") {
+		return ""
+	}
+	return tok
 }
 
 // startSession replaces any existing session with a fresh one and sends the

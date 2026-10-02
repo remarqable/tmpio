@@ -1,6 +1,7 @@
 {{define "partials/_signin.html"}}
 <div class="auth-card">
   {{if .SignInFailed}}<div class="auth-note auth-note-error">{{t "landing.signin_failed"}}</div>{{end}}
+  {{if .SignupsClosed}}<div class="auth-note auth-note-error">{{t "landing.signups_closed"}}</div>{{end}}
 
   {{if .GoogleEnabled}}
     <a class="{{if .LocalAuth}}auth-btn-ghost{{else}}auth-btn{{end}}" href="/auth/google{{if or .Return .OAuthRequest}}?{{if .Return}}return={{.Return}}{{end}}{{if .OAuthRequest}}{{if .Return}}&amp;{{end}}oauth={{.OAuthRequest}}{{end}}{{end}}">{{t "landing.cta"}}</a>

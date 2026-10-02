@@ -154,17 +154,28 @@ func (o *Ops) RevokeInvite(ctx context.Context, p Principal, id int64) error {
 func AcceptInvite(ctx context.Context, token string, userID int64) (int64, error) {
 	var tenantID int64
 	err := db.WithTx(ctx, func(tx *gorm.DB) error {
-		var got sql.NullInt64
-		if err := tx.Raw(`SELECT accept_invite(decode(?, 'hex'), ?)`, HashHex(token), userID).Scan(&got).Error; err != nil {
+		var err error
+		if tenantID, err = acceptInviteTx(tx, token, userID); err != nil {
 			return err
 		}
-		if !got.Valid {
+		if tenantID == 0 {
 			return errors.New(errors.CodeNotFound, "that invitation is not valid any more")
 		}
-		tenantID = got.Int64
 		return nil
 	})
 	return tenantID, err
+}
+
+// acceptInviteTx accepts an invitation inside the caller's transaction and
+// returns the organization joined, or 0 when the token is unknown, used,
+// revoked or expired. SignInWith uses it to create an account and its
+// membership together.
+func acceptInviteTx(tx *gorm.DB, token string, userID int64) (int64, error) {
+	var got sql.NullInt64
+	if err := tx.Raw(`SELECT accept_invite(decode(?, 'hex'), ?)`, HashHex(token), userID).Scan(&got).Error; err != nil {
+		return 0, err
+	}
+	return got.Int64, nil
 }
 
 // InviteInfo describes an invitation to whoever is holding the link, without

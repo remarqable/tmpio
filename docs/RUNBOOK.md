@@ -58,15 +58,14 @@ Restore decrypts first: `age -d -i tmp-backup.key tmp-2026-09-18.dump.age > tmp-
 
 Custom format is compressed and supports selective restore. Point-in-time recovery (WAL archiving) is a PostgreSQL configuration decision outside this runbook.
 
-## Launch waitlist
+## Letting people in while sign-ups are closed
 
-While `SIGNUPS_ENABLED=0`, the landing page collects email addresses into `launch_signup`. Nothing in the application reads that table. To export it for the launch email, as `app_owner`:
+With `SIGNUPS_ENABLED=0` there are two ways in for someone new:
 
-```sql
-SELECT email, source, created_at FROM launch_signup ORDER BY created_at;
-```
+- **Their own site:** add their address under Admin → Server → Who can sign up (instance admin only). It must be the address their Google account uses. The list shows who has signed up. Removing an address stops new sign-ups with it; an account it already created stays.
+- **A place in an existing site:** the site's owner invites them from Admin → People and sends the link. Opening it and signing in creates an account that belongs to that site only. They get no site of their own unless their address is also on the allowlist.
 
-Delete the rows after the launch email has been sent (the privacy notice promises this): `DELETE FROM launch_signup;`. To remove one address on request: `DELETE FROM launch_signup WHERE email = lower('person@example.com');`.
+Refusals are logged as `auth.signup_refused` (with `invite=true` when they arrived with a link), and invite sign-ups as `auth.joined_by_invite`.
 
 ## Account deletion
 

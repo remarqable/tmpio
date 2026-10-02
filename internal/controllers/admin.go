@@ -249,9 +249,18 @@ func (d *Deps) AdminServer(c *gin.Context) {
 		d.fail(c, err)
 		return
 	}
+	allow, err := models.ListSignupAllow(c.Request.Context())
+	if err != nil {
+		d.fail(c, err)
+		return
+	}
 	sv.Title = i18n.T("en", "server.title")
 	d.render(c, http.StatusOK, "pages/admin/server.html", "layout/site", gin.H{
-		"Site": sv,
+		"Site":        sv,
+		"SignupsOpen": d.Cfg.SignupsEnabled,
+		"Allow":       allow,
+		"Allowed":     c.Query("allowed"),
+		"AllowError":  c.Query("allow_error"),
 		// The environment only seeds the stored key, so the field is always
 		// editable; say where the current one came from and leave it at that.
 		"FromEnv": d.Cfg.AI.APIKey != "" && d.Cfg.AI.APIKey == set.AIAPIKey,
@@ -290,6 +299,38 @@ func (d *Deps) AdminServerAI(c *gin.Context) {
 		return
 	}
 	c.Redirect(http.StatusSeeOther, "/admin/server?saved=1&verified=1")
+}
+
+// AdminServerAllow adds an address to the signup allowlist: while sign-ups are
+// closed, that address may still create an account and get its own site.
+func (d *Deps) AdminServerAllow(c *gin.Context) {
+	u, ok := d.instanceAdmin(c)
+	if !ok {
+		return
+	}
+	ctx := c.Request.Context()
+	email, err := models.AllowSignup(ctx, c.PostForm("email"), c.PostForm("note"), u.ID)
+	if err != nil {
+		c.Redirect(http.StatusSeeOther, "/admin/server?allow_error="+url.QueryEscape(errors.As(err).Message)+"#signups")
+		return
+	}
+	obs.From(ctx).Info().Str("event", "settings.signup_allow").Msg("")
+	c.Redirect(http.StatusSeeOther, "/admin/server?allowed="+url.QueryEscape(email)+"#signups")
+}
+
+// AdminServerAllowRemove takes an address off the allowlist. An account it
+// already created is not affected.
+func (d *Deps) AdminServerAllowRemove(c *gin.Context) {
+	if _, ok := d.instanceAdmin(c); !ok {
+		return
+	}
+	ctx := c.Request.Context()
+	if err := models.DisallowSignup(ctx, c.PostForm("email")); err != nil {
+		d.flashFail(c, err, "/admin/server")
+		return
+	}
+	obs.From(ctx).Info().Str("event", "settings.signup_disallow").Msg("")
+	c.Redirect(http.StatusSeeOther, "/admin/server#signups")
 }
 
 func firstNonEmpty(vals ...string) string {

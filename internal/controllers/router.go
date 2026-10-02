@@ -144,6 +144,8 @@ func (d *Deps) SetupRouter(mcpHandler http.Handler) *gin.Engine {
 		admin.POST("/settings/delete-account", middleware.RateLimit(ratelimit.New(5), middleware.KeyByPrincipalOrIP), d.AdminDeleteAccount)
 		admin.GET("/server", d.AdminServer)
 		admin.POST("/server/ai", d.AdminServerAI)
+		admin.POST("/server/allow", d.AdminServerAllow)
+		admin.POST("/server/allow/remove", d.AdminServerAllowRemove)
 		admin.GET("/export", d.AdminExport)
 		admin.GET("/export.zip", middleware.RateLimit(ratelimit.New(5), middleware.KeyByPrincipalOrIP), d.AdminExportDownload)
 	}
