@@ -55,7 +55,7 @@ release: ##@Ship publish a version (bare = next patch; V=1.5 = next minor)
 	git diff --quiet && git diff --cached --quiet || { echo "working tree is dirty; commit first"; exit 1; }; \
 	test -z "$$(git log origin/main..HEAD --oneline)" || { echo "unpushed commits; git push first"; exit 1; }; \
 	git tag -a "v$$new" -m "v$$new" && git push -q origin "v$$new"; \
-	echo "pushed. building the image (arm64 is emulated, so this takes a while)…"; \
+	echo "pushed. building the image (amd64 and arm64, about three minutes)…"; \
 	until [ "$$(gh run list --workflow release --branch v$$new --limit 1 --json status --jq '.[0].status' 2>/dev/null)" = completed ]; do sleep 20; done; \
 	r=$$(gh run list --workflow release --branch v$$new --limit 1 --json conclusion --jq '.[0].conclusion'); \
 	if [ "$$r" = success ]; then \
