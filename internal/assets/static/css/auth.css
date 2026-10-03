@@ -120,6 +120,54 @@ body {
 .auth-btn-ghost:hover { background: var(--surface-2); border-color: var(--fg-3); }
 .auth-btn:focus-visible, .auth-btn-ghost:focus-visible { outline: 2px solid var(--fg-3); outline-offset: 2px; }
 
+/* Sign in with Google, dark theme, per Google's branding guidelines: the
+   unaltered four-colour G on a #131314 fill, #8E918F border, #E3E3E3 label in
+   Roboto Medium 14/20, 40px tall, the logo 12px from the edge and 10px from
+   the label, and a state layer of the label colour on hover (8%) and focus
+   (12%). The corner radius matches the page's other buttons. */
+@font-face {
+  font-family: "Roboto";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("../fonts/roboto-latin-500.woff2") format("woff2");
+}
+.auth-google {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  font-family: "Roboto", arial, sans-serif;
+  font-size: 14px;
+  font-weight: 500;
+  line-height: 20px;
+  letter-spacing: 0.25px;
+  color: #e3e3e3;
+  background: #131314;
+  border: 1px solid #8e918f;
+  border-radius: var(--radius-sm);
+  text-decoration: none;
+  cursor: pointer;
+  overflow: hidden;
+}
+.auth-google::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: #e3e3e3;
+  opacity: 0;
+  transition: opacity 150ms var(--ease);
+  pointer-events: none;
+}
+.auth-google:hover::after { opacity: 0.08; }
+.auth-google:focus-visible { outline: 2px solid var(--fg-3); outline-offset: 2px; }
+.auth-google:focus-visible::after { opacity: 0.12; }
+.auth-google-logo { flex: none; width: 20px; height: 20px; }
+
 .auth-actions { display: flex; gap: 8px; }
 .auth-actions .auth-btn, .auth-actions .auth-btn-ghost { width: auto; flex: 1; }
 
