@@ -3,6 +3,7 @@ package controllers
 import (
 	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -266,4 +267,38 @@ func TestSignupLinkIsForTheOperatorOnly(t *testing.T) {
 	set, err := models.GetInstanceSetting(t.Context())
 	require.NoError(t, err)
 	assert.Empty(t, set.SignupLink)
+}
+
+// TestRemovedInviteeSignsInAgain: someone who joined only by invitation and
+// was then removed belongs to no site. Signing in again must not fail with an
+// internal error. Closed: refused politely. Through the sign-up link: a site
+// of their own. And a member with a site keeps signing in to that one site,
+// never a new one each time.
+func TestRemovedInviteeSignsInAgain(t *testing.T) {
+	h := newHarness(t)
+	admin := instanceAdminClient(t, h, "admin@x.test")
+	invite(t, admin, "guest@x.test", models.RoleEditor)
+	h.cfg.SignupsEnabled = false
+	devSignIn(h, "guest@x.test", "")
+	require.Equal(t, []string{models.RoleEditor}, memberships(t, "guest@x.test"))
+
+	var guestID int64
+	require.NoError(t, db.OwnerForTest(t).Raw(`SELECT id FROM "user" WHERE email = ?`, "guest@x.test").Scan(&guestID).Error)
+	res := admin.form("/admin/members/remove", url.Values{"user_id": {strconv.FormatInt(guestID, 10)}})
+	res.Body.Close()
+	require.Equal(t, 303, res.StatusCode)
+	require.Empty(t, memberships(t, "guest@x.test"))
+
+	_, loc := devSignIn(h, "guest@x.test", "")
+	assert.Equal(t, "/login?closed=1", loc, "refused like a newcomer, not a 400")
+
+	token := signupLink(t, admin)
+	_, loc = devSignIn(h, "guest@x.test", "/signup/"+token)
+	assert.Equal(t, "/", loc)
+	assert.Equal(t, []string{"owner"}, memberships(t, "guest@x.test"), "the sign-up link gives them their own site")
+
+	devSignIn(h, "guest@x.test", "")
+	devSignIn(h, "admin@x.test", "")
+	assert.Equal(t, []string{"owner"}, memberships(t, "guest@x.test"), "signing in again does not make another site")
+	assert.Equal(t, []string{"owner"}, memberships(t, "admin@x.test"))
 }

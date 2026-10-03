@@ -169,6 +169,31 @@ func SignInWith(ctx context.Context, ext ExternalIdentity, initialConfig string,
 			if joined, err = acceptInvitesTx(tx, verified, user.ID); err != nil {
 				return err
 			}
+			// Someone removed from every site they belonged to, typically an
+			// invite-only account, is a newcomer again: they get a site of
+			// their own on the same terms as anyone else, or are refused the
+			// same way, rather than signing in to nothing.
+			var memberships int64
+			if err := db.SetUserScope(tx, user.ID); err != nil {
+				return err
+			}
+			if err := tx.Model(&Membership{}).Where("user_id = ?", user.ID).Count(&memberships).Error; err != nil {
+				return err
+			}
+			if memberships == 0 {
+				allowed := open
+				if !allowed {
+					if allowed, err = signupAllowed(tx, verified); err != nil {
+						return err
+					}
+				}
+				if !allowed {
+					return errors.New(errors.CodeSignupsClosed, "this account is no longer part of any site here")
+				}
+				if _, err := createTenantWithOwner(tx, user.ID, initialConfig, initialIndex); err != nil {
+					return err
+				}
+			}
 			prefer := int64(0)
 			if len(joined) > 0 {
 				prefer = joined[0]
