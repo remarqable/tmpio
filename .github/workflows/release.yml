@@ -4,12 +4,12 @@
 # Tagging v1.4.2 publishes :1.4.2, :1.4, :1 and :latest. Self-hosters are told
 # to pin :1, which brings them fixes and features but never a breaking change.
 #
-# Only tags build arm64. arm64 is emulated through QEMU here, which turns a
-# two-minute build into a twenty-minute one, and :edge is a convenience tag
-# nobody deploys -- paying that on every commit bought nothing. Releases still
-# ship both, so an ARM host (Ampere, Graviton, a Pi) pulling :1 gets an image.
-# When this repository is public, ubuntu-24.04-arm runners are free and this
-# can become a native matrix instead.
+# Every build ships amd64 and arm64, so an ARM host (Ampere, Graviton, a Pi)
+# pulling :1 or :edge gets an image. The Dockerfile cross-compiles the Go
+# binary on the runner's own architecture and only copies it into each
+# platform's image, so nothing runs under emulation: arm64 used to be built
+# through QEMU, which turned a two-minute build into a ten-to-twenty-minute
+# one.
 name: release
 
 on:
@@ -30,8 +30,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: docker/setup-qemu-action@v3
-        if: startsWith(github.ref, 'refs/tags/v')
       - uses: docker/setup-buildx-action@v3
 
       - uses: docker/login-action@v3
@@ -60,7 +58,7 @@ jobs:
       - uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: ${{ startsWith(github.ref, 'refs/tags/v') && 'linux/amd64,linux/arm64' || 'linux/amd64' }}
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

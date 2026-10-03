@@ -1,7 +1,11 @@
 # One static binary on a distroless base: no shell, no package manager, nothing
 # to patch but the binary itself. The blueprint submodule is not needed to
 # build, so `git clone` without --recurse-submodules is enough.
-FROM golang:1.26 AS build
+#
+# The build stage runs on the builder's own architecture and cross-compiles
+# for the target: the binary is pure Go, so an arm64 image needs no emulation.
+# Only the final stage is per-platform, and it only copies a file.
+FROM --platform=$BUILDPLATFORM golang:1.26 AS build
 WORKDIR /src
 
 # Dependencies first, so a source-only change does not refetch them.
@@ -11,7 +15,9 @@ RUN go mod download
 COPY . .
 ARG VERSION=dev
 ARG BUILD_DATE
-RUN CGO_ENABLED=0 GOOS=linux go build \
+ARG TARGETOS=linux
+ARG TARGETARCH
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build \
       -trimpath \
       -ldflags="-s -w \
         -X github.com/remarqable/tmpio/internal/version.Version=${VERSION} \
