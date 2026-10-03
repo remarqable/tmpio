@@ -215,7 +215,17 @@ func (o *Ops) RemoveMember(ctx context.Context, p Principal, userID int64) error
 			Update("revoked_at", now).Error; err != nil {
 			return err
 		}
+		// OAuth tokens carry no user; they belong to a grant, and the grant to
+		// the user. Revoking the grants is what the token lookup checks; the
+		// tokens are revoked too so the record says so.
+		grants := tx.Table("oauth_grant").Select("id").
+			Where("tenant_id = ? AND user_id = ?", p.TenantID, userID)
 		if err := tx.Table("oauth_token").
+			Where("tenant_id = ? AND grant_id IN (?) AND revoked_at IS NULL", p.TenantID, grants).
+			Update("revoked_at", now).Error; err != nil {
+			return err
+		}
+		if err := tx.Table("oauth_grant").
 			Where("tenant_id = ? AND user_id = ? AND revoked_at IS NULL", p.TenantID, userID).
 			Update("revoked_at", now).Error; err != nil {
 			return err

@@ -968,3 +968,44 @@ func TestRestoreRejectsContentInvalidUnderCurrentParser(t *testing.T) {
 	require.NoError(t, err)
 	assert.EqualValues(t, 3, rs.Entry.Revision)
 }
+
+// TestRemoveMemberRevokesTheirCredentials: removing someone cuts off the API
+// tokens and the connected AI apps they had for that organization, at once.
+// No test removed an ordinary member before, and the revocation queried a
+// user_id column that oauth_token does not have, so every removal failed.
+func TestRemoveMemberRevokesTheirCredentials(t *testing.T) {
+	db.ConnectTest(t)
+	ctx := context.Background()
+	o := testOps()
+	owner, tn, _ := newOwner(t, "boss@x.test")
+	owner.Role = RoleOwner
+	_, _, guest := newOwner(t, "guest@x.test")
+	require.NoError(t, db.WithTenant(ctx, tn.ID, func(tx *gorm.DB) error {
+		return tx.Create(&Membership{TenantID: tn.ID, UserID: guest.ID, Role: RoleEditor}).Error
+	}))
+	gp := Principal{Kind: PrincipalOwner, TenantID: tn.ID, UserID: guest.ID, Scopes: RoleScopes(RoleEditor), Role: RoleEditor}
+
+	apiTok, _, err := CreateAPIToken(ctx, gp, "cli", []string{ScopeRead}, 0)
+	require.NoError(t, err)
+	require.NoError(t, SyncOAuthClients(ctx, []config.OAuthClient{{ID: "c1", Name: "Client One", RedirectURIs: []string{"http://127.0.0.1:1/cb"}, Public: true}}))
+	aud := "http://localhost:8000/mcp"
+	code, err := AuthorizeClient(ctx, gp, "c1", "http://127.0.0.1:1/cb", aud, "chal", "S256", []string{ScopeRead})
+	require.NoError(t, err)
+	rec, err := ConsumeAuthCode(ctx, code)
+	require.NoError(t, err)
+	pair, err := IssueTokens(ctx, rec.TenantID, rec.GrantID, aud, "")
+	require.NoError(t, err)
+	_, err = AuthenticateAPIToken(ctx, apiTok)
+	require.NoError(t, err)
+	_, _, err = AuthenticateAccessToken(ctx, pair.AccessToken, aud)
+	require.NoError(t, err)
+
+	require.NoError(t, o.RemoveMember(ctx, owner, guest.ID))
+
+	_, err = AuthenticateAPIToken(ctx, apiTok)
+	assert.Error(t, err, "their API token stops working")
+	_, _, err = AuthenticateAccessToken(ctx, pair.AccessToken, aud)
+	assert.Error(t, err, "their connected app stops working")
+	_, err = RefreshTokens(ctx, pair.RefreshToken, "c1", aud)
+	assert.Error(t, err, "and cannot refresh its way back in")
+}
