@@ -198,3 +198,72 @@ func TestExpiredInviteJoinsNothing(t *testing.T) {
 	_, loc := devSignIn(h, "late@x.test", "")
 	assert.Equal(t, "/login?closed=1", loc)
 }
+
+// signupLink has the operator create a sign-up link and returns its token.
+func signupLink(t *testing.T, admin *client) string {
+	t.Helper()
+	res := admin.form("/admin/server/signup-link", url.Values{})
+	res.Body.Close()
+	require.Equal(t, 303, res.StatusCode)
+	m := regexp.MustCompile(`/signup/([A-Za-z0-9_-]+)`).FindStringSubmatch(readAll(admin.do("GET", "/admin/server", nil, nil)))
+	require.NotNil(t, m, "the link is shown on the server page")
+	return m[1]
+}
+
+// TestSignupLinkCreatesASite: with sign-ups closed, someone who comes through
+// the hidden link and signs in gets their own site.
+func TestSignupLinkCreatesASite(t *testing.T) {
+	h := newHarness(t)
+	admin := instanceAdminClient(t, h, "admin@x.test")
+	token := signupLink(t, admin)
+	h.cfg.SignupsEnabled = false
+
+	page := h.anon().do("GET", "/signup/"+token, nil, nil)
+	body := readAll(page)
+	require.Equal(t, 200, page.StatusCode)
+	assert.Contains(t, body, "You have a sign-up link")
+	assert.Contains(t, body, `value="/signup/`+token+`"`, "sign-in returns through the link")
+
+	_, loc := devSignIn(h, "new@x.test", "/signup/"+token)
+	assert.Equal(t, "/", loc, "lands on their new site, not back on the link")
+	assert.Equal(t, []string{"owner"}, memberships(t, "new@x.test"))
+
+	// Without the link, the same closed server still refuses a stranger.
+	_, loc = devSignIn(h, "nolink@x.test", "")
+	assert.Equal(t, "/login?closed=1", loc)
+}
+
+// TestSignupLinkCanBeReplacedAndTurnedOff: a new link revokes the old one, and
+// turning it off revokes it altogether. A bad link looks like any 404.
+func TestSignupLinkCanBeReplacedAndTurnedOff(t *testing.T) {
+	h := newHarness(t)
+	admin := instanceAdminClient(t, h, "admin@x.test")
+	old := signupLink(t, admin)
+	fresh := signupLink(t, admin)
+	require.NotEqual(t, old, fresh)
+	h.cfg.SignupsEnabled = false
+
+	res := h.anon().do("GET", "/signup/"+old, nil, nil)
+	res.Body.Close()
+	assert.Equal(t, 404, res.StatusCode, "a replaced link is gone")
+	_, loc := devSignIn(h, "late@x.test", "/signup/"+old)
+	assert.Equal(t, "/login?closed=1", loc, "and cannot be used to sign up")
+
+	res = admin.form("/admin/server/signup-link", url.Values{"action": {"off"}})
+	res.Body.Close()
+	_, loc = devSignIn(h, "later@x.test", "/signup/"+fresh)
+	assert.Equal(t, "/login?closed=1", loc, "turned off means off")
+	assert.NotContains(t, readAll(admin.do("GET", "/admin/server", nil, nil)), "/signup/")
+}
+
+// TestSignupLinkIsForTheOperatorOnly: an ordinary owner cannot make one.
+func TestSignupLinkIsForTheOperatorOnly(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	res := owner.form("/admin/server/signup-link", url.Values{})
+	res.Body.Close()
+	assert.Equal(t, 404, res.StatusCode)
+	set, err := models.GetInstanceSetting(t.Context())
+	require.NoError(t, err)
+	assert.Empty(t, set.SignupLink)
+}

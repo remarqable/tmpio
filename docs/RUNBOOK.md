@@ -60,7 +60,9 @@ Custom format is compressed and supports selective restore. Point-in-time recove
 
 ## Letting people in while sign-ups are closed
 
-With `SIGNUPS_ENABLED=0` there are two ways in for someone new:
+With `SIGNUPS_ENABLED=0` there are three ways in for someone new:
+
+- **A sign-up link:** Admin → Server → Sign-up link gives one hidden link; anyone who opens it and signs in with Google gets their own site. Pass it to the people you want. If it goes further than you meant, **Make a new link** (the old one stops working at once) or **Turn off**. Sign-ups through it are logged as `auth.signup_by_link`.
 
 - **Their own site:** add their address under Admin → Server → Who can sign up (instance admin only). It must be the address their Google account uses. The list shows who has signed up. Removing an address stops new sign-ups with it; an account it already created stays.
 - **A place in an existing site:** the site's owner adds their address under Admin → People. There is nothing to send: the next time they sign in with Google using that address, they join, and land in that site. Someone new gets an account in that site only, with no site of their own unless their address is also on the allowlist.

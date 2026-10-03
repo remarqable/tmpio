@@ -1,6 +1,7 @@
 {{define "partials/_signin.html"}}
 <div class="auth-card">
   {{if .SignInFailed}}<div class="auth-note auth-note-error">{{t "landing.signin_failed"}}</div>{{end}}
+  {{if .SignupLinkPage}}<div class="auth-note">{{t "landing.signup_link"}}</div>{{end}}
   {{if .SignupsClosed}}<div class="auth-note auth-note-error">{{t "landing.signups_closed"}}</div>{{end}}
 
   {{if .GoogleEnabled}}

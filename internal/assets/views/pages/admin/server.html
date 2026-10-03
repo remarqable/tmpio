@@ -38,6 +38,20 @@
 </form>
 </div></div>
 
+<div class="card mt-3" id="signup-link"><div class="card-body">
+<h2 class="h6">{{t "server.link_title"}}</h2>
+<p class="form-text">{{t "server.link_help"}}</p>
+{{if .SignupLink}}
+<div class="input-group mb-2"><input class="form-control font-monospace" value="{{.SignupLink}}" readonly aria-label="{{t "server.link_title"}}"><button class="tmp-btn tmp-btn-secondary" type="button" data-copy-btn="{{.SignupLink}}">{{template "icon" "copy"}} {{t "common.copy"}}</button></div>
+<div class="d-flex gap-2">
+  <form method="post" action="/admin/server/signup-link" class="tmp-inline-form" data-confirm="{{t "server.link_new_confirm"}}"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="tmp-btn tmp-btn-secondary">{{t "server.link_new"}}</button></form>
+  <form method="post" action="/admin/server/signup-link" class="tmp-inline-form"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><input type="hidden" name="action" value="off"><button class="tmp-btn tmp-btn-secondary">{{t "server.link_off"}}</button></form>
+</div>
+{{else}}
+<form method="post" action="/admin/server/signup-link"><input type="hidden" name="csrf_token" value="{{.CSRF}}"><button class="tmp-btn">{{template "icon" "link"}} {{t "server.link_create"}}</button></form>
+{{end}}
+</div></div>
+
 <div class="card mt-3" id="signups"><div class="card-body">
 <h2 class="h6">{{t "server.signups_title"}}</h2>
 {{if .SignupsOpen}}
@@ -49,9 +63,9 @@
 {{if .AllowError}}<div class="alert alert-danger py-2 small">{{.AllowError}}</div>{{end}}
 <form method="post" action="/admin/server/allow" class="row g-2 align-items-end mb-3">
   <input type="hidden" name="csrf_token" value="{{.CSRF}}">
-  <div class="col-sm-6"><label class="form-label" for="allow-email">{{t "server.allow_email"}}</label><input class="form-control" id="allow-email" name="email" type="email" required autocomplete="off" spellcheck="false" placeholder="someone@example.com"></div>
-  <div class="col-sm-4"><label class="form-label" for="allow-note">{{t "server.allow_note"}}</label><input class="form-control" id="allow-note" name="note" autocomplete="off" placeholder="{{t "server.allow_note_placeholder"}}"></div>
-  <div class="col-sm-2"><button class="tmp-btn w-100">{{template "icon" "plus"}} {{t "server.allow_add"}}</button></div>
+  <div class="col-sm-5"><label class="form-label" for="allow-email">{{t "server.allow_email"}}</label><input class="form-control" id="allow-email" name="email" type="email" required autocomplete="off" spellcheck="false" placeholder="someone@example.com"></div>
+  <div class="col-sm"><label class="form-label" for="allow-note">{{t "server.allow_note"}}</label><input class="form-control" id="allow-note" name="note" autocomplete="off" placeholder="{{t "server.allow_note_placeholder"}}"></div>
+  <div class="col-sm-auto"><button class="tmp-btn w-100 text-nowrap">{{template "icon" "plus"}} {{t "server.allow_add"}}</button></div>
 </form>
 {{if .Allow}}
 <table class="table table-sm align-middle small mb-0">

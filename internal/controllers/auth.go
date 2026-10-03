@@ -39,6 +39,25 @@ func (d *Deps) landingData(c *gin.Context) gin.H {
 	return gin.H{"Return": "", "SignInFailed": c.Query("failed") == "1"}
 }
 
+// SignupLink is the hidden sign-up link: the sign-in page, with a note, whose
+// sign-in may create a site while sign-ups are closed. An unknown or replaced
+// link is a plain 404, so the address says nothing about whether one exists.
+func (d *Deps) SignupLink(c *gin.Context) {
+	token := c.Param("token")
+	if !models.SignupLinkValid(c.Request.Context(), token) {
+		d.renderError(c, http.StatusNotFound, "")
+		return
+	}
+	if _, _, _, _, ok := middleware.OwnerSession(c); ok {
+		c.Redirect(http.StatusFound, "/")
+		return
+	}
+	middleware.NoStore(c)
+	d.render(c, http.StatusOK, "pages/auth/landing.html", "layout/auth", gin.H{
+		"Return": "/signup/" + token, "LoginPage": true, "SignupLinkPage": true,
+	})
+}
+
 // Login shows sign-in options and preserves the requested return path.
 func (d *Deps) Login(c *gin.Context) {
 	ret := safeReturnPath(c.Query("return"))
@@ -171,7 +190,17 @@ func (d *Deps) LocalLogin(c *gin.Context) {
 
 func (d *Deps) finishSignIn(c *gin.Context, ident models.ExternalIdentity, returnPath string, oauthReq []byte) {
 	ctx := c.Request.Context()
-	res, err := models.SignInWith(ctx, ident, models.DefaultSiteConfigYAML, models.WelcomeMarkdown(d.Cfg.AppOrigin), d.Cfg.SignupsEnabled)
+	// Someone who came through the hidden sign-up link is on their way back
+	// to it; while it is still the current link, they may create a site.
+	open := d.Cfg.SignupsEnabled
+	viaLink := false
+	if tok, ok := strings.CutPrefix(returnPath, "/signup/"); ok && !open && models.SignupLinkValid(ctx, tok) {
+		open, viaLink = true, true
+	}
+	if strings.HasPrefix(returnPath, "/signup/") {
+		returnPath = "/"
+	}
+	res, err := models.SignInWith(ctx, ident, models.DefaultSiteConfigYAML, models.WelcomeMarkdown(d.Cfg.AppOrigin), open)
 	if err != nil {
 		if errors.Is(err, errors.CodeSignupsClosed) {
 			obs.From(ctx).Info().Str("event", "auth.signup_refused").Msg("")
@@ -182,6 +211,9 @@ func (d *Deps) finishSignIn(c *gin.Context, ident models.ExternalIdentity, retur
 		obs.From(ctx).Error().Err(err).Msg("sign in")
 		d.authError(c)
 		return
+	}
+	if viaLink && res.Created {
+		obs.From(ctx).Info().Str("event", "auth.signup_by_link").Int64("user_id", res.User.ID).Msg("")
 	}
 	actIn := int64(0)
 	if len(res.Joined) > 0 {

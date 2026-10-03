@@ -40,7 +40,7 @@ func ResetTestData(t *testing.T) {
 	tables := []string{"signup_allow", "mutation_receipt", "audit_event", "share_grant_asset", "share_grant", "oauth_token", "oauth_code", "oauth_grant", "oauth_client", "api_token", "path_alias", "revision", "entry", "asset_blob", "membership", "login_state", "session", "identity", "local_credential", "tenant", `"user"`}
 	// instance_setting is a singleton the migration seeds; reset its columns
 	// rather than truncating the row away.
-	if err := gdbOwner.Exec(`UPDATE instance_setting SET ai_api_key = '', ai_model = '', ai_base_url = '', ai_workspace_id = '' WHERE id = 1`).Error; err != nil {
+	if err := gdbOwner.Exec(`UPDATE instance_setting SET ai_api_key = '', ai_model = '', ai_base_url = '', ai_workspace_id = '', signup_link = '' WHERE id = 1`).Error; err != nil {
 		t.Fatalf("reset instance_setting: %v", err)
 	}
 	for _, tbl := range tables {

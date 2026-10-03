@@ -37,7 +37,7 @@ func IsReservedRoot(seg string) bool { return reservedRoot[seg] }
 var reservedRoot = map[string]bool{
 	"s": true, "app": true, "auth": true, "oauth": true, "api": true, "mcp": true,
 	".well-known": true, "static": true, "healthz": true, "readyz": true, "robots.txt": true,
-	"sitemap.xml": true, "llms.txt": true, "search": true, "metrics": true, "login": true, "logout": true, "favicon.ico": true,
+	"sitemap.xml": true, "llms.txt": true, "search": true, "metrics": true, "login": true, "logout": true, "favicon.ico": true, "signup": true,
 	// Owner operation verbs and the admin area (section 4 reservation, extended).
 	"edit": true, "new": true, "history": true, "share": true, "move": true, "delete": true, "upload": true, "trash": true, "preview": true, "admin": true, "format": true,
 }

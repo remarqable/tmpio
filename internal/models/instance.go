@@ -2,6 +2,7 @@ package models
 
 import (
 	"context"
+	"crypto/subtle"
 	goerrors "errors"
 	"strings"
 	"time"
@@ -22,6 +23,7 @@ type InstanceSetting struct {
 	AIModel       string
 	AIBaseURL     string
 	AIWorkspaceID string
+	SignupLink    string
 	CreatedAt     time.Time `gorm:"autoCreateTime"`
 	UpdatedAt     time.Time `gorm:"autoUpdateTime"`
 }
@@ -65,6 +67,36 @@ func SaveInstanceAI(ctx context.Context, apiKey, model, baseURL, workspaceID str
 				ai_workspace_id = EXCLUDED.ai_workspace_id`,
 			apiKey, model, baseURL, workspaceID).Error
 	})
+}
+
+// NewSignupLink replaces the hidden sign-up link with a fresh secret and
+// returns it. The old one stops working at once.
+func NewSignupLink(ctx context.Context) (string, error) {
+	token := NewToken()
+	err := db.WithTx(ctx, func(tx *gorm.DB) error {
+		return tx.Exec(`INSERT INTO instance_setting (id, signup_link) VALUES (1, ?)
+			ON CONFLICT (id) DO UPDATE SET signup_link = EXCLUDED.signup_link`, token).Error
+	})
+	return token, err
+}
+
+// DisableSignupLink turns the hidden sign-up link off.
+func DisableSignupLink(ctx context.Context) error {
+	return db.WithTx(ctx, func(tx *gorm.DB) error {
+		return tx.Exec(`UPDATE instance_setting SET signup_link = '' WHERE id = 1`).Error
+	})
+}
+
+// SignupLinkValid reports whether token is the current sign-up link.
+func SignupLinkValid(ctx context.Context, token string) bool {
+	if token == "" {
+		return false
+	}
+	s, err := GetInstanceSetting(ctx)
+	if err != nil || s.SignupLink == "" {
+		return false
+	}
+	return subtle.ConstantTimeCompare([]byte(token), []byte(s.SignupLink)) == 1
 }
 
 // SetInstanceAdmin marks the account that administers the installation. The

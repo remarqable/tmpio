@@ -259,6 +259,7 @@ func (d *Deps) AdminServer(c *gin.Context) {
 		"Site":        sv,
 		"SignupsOpen": d.Cfg.SignupsEnabled,
 		"Allow":       allow,
+		"SignupLink":  linkURL(d, set.SignupLink),
 		"Allowed":     c.Query("allowed"),
 		"AllowError":  c.Query("allow_error"),
 		// The environment only seeds the stored key, so the field is always
@@ -331,6 +332,35 @@ func (d *Deps) AdminServerAllowRemove(c *gin.Context) {
 	}
 	obs.From(ctx).Info().Str("event", "settings.signup_disallow").Msg("")
 	c.Redirect(http.StatusSeeOther, "/admin/server#signups")
+}
+
+// linkURL is the full sign-up link for a token, or "" when there is none.
+func linkURL(d *Deps, token string) string {
+	if token == "" {
+		return ""
+	}
+	return d.abs("/signup/" + token)
+}
+
+// AdminServerSignupLink creates, replaces or turns off the hidden sign-up
+// link. Replacing it is how a link that has gone too far is revoked.
+func (d *Deps) AdminServerSignupLink(c *gin.Context) {
+	if _, ok := d.instanceAdmin(c); !ok {
+		return
+	}
+	ctx := c.Request.Context()
+	var err error
+	if c.PostForm("action") == "off" {
+		err = models.DisableSignupLink(ctx)
+	} else {
+		_, err = models.NewSignupLink(ctx)
+	}
+	if err != nil {
+		d.flashFail(c, err, "/admin/server")
+		return
+	}
+	obs.From(ctx).Info().Str("event", "settings.signup_link").Str("action", firstNonEmpty(c.PostForm("action"), "new")).Msg("")
+	c.Redirect(http.StatusSeeOther, "/admin/server#signup-link")
 }
 
 func firstNonEmpty(vals ...string) string {

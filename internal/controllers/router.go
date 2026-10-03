@@ -79,6 +79,7 @@ func (d *Deps) SetupRouter(mcpHandler http.Handler) *gin.Engine {
 	// because this is the one route where guessing a secret is the attack.
 	r.POST("/auth/local", middleware.RateLimit(ratelimit.New(10), middleware.KeyByIP), d.LocalLogin)
 	r.POST("/logout", middleware.CSRF(d.Cfg), d.Logout)
+	r.GET("/signup/:token", middleware.RateLimit(authLimit, middleware.KeyByIP), d.SignupLink)
 
 	// OAuth authorization server for AI clients
 	r.GET("/.well-known/oauth-authorization-server", d.ASMetadata)
@@ -143,6 +144,7 @@ func (d *Deps) SetupRouter(mcpHandler http.Handler) *gin.Engine {
 		admin.GET("/server", d.AdminServer)
 		admin.POST("/server/ai", d.AdminServerAI)
 		admin.POST("/server/allow", d.AdminServerAllow)
+		admin.POST("/server/signup-link", d.AdminServerSignupLink)
 		admin.POST("/server/allow/remove", d.AdminServerAllowRemove)
 		admin.GET("/export", d.AdminExport)
 		admin.GET("/export.zip", middleware.RateLimit(ratelimit.New(5), middleware.KeyByPrincipalOrIP), d.AdminExportDownload)
