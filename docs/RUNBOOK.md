@@ -63,9 +63,9 @@ Custom format is compressed and supports selective restore. Point-in-time recove
 With `SIGNUPS_ENABLED=0` there are two ways in for someone new:
 
 - **Their own site:** add their address under Admin → Server → Who can sign up (instance admin only). It must be the address their Google account uses. The list shows who has signed up. Removing an address stops new sign-ups with it; an account it already created stays.
-- **A place in an existing site:** the site's owner invites them from Admin → People and sends the link. Opening it and signing in creates an account that belongs to that site only. They get no site of their own unless their address is also on the allowlist.
+- **A place in an existing site:** the site's owner adds their address under Admin → People. There is nothing to send: the next time they sign in with Google using that address, they join, and land in that site. Someone new gets an account in that site only, with no site of their own unless their address is also on the allowlist.
 
-Refusals are logged as `auth.signup_refused` (with `invite=true` when they arrived with a link), and invite sign-ups as `auth.joined_by_invite`.
+Refusals are logged as `auth.signup_refused`, and sign-ins that joined a site as `auth.joined_by_invite`.
 
 ## Account deletion
 

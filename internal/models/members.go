@@ -2,7 +2,6 @@ package models
 
 import (
 	"context"
-	"database/sql"
 	goerrors "errors"
 	"strings"
 	"time"
@@ -13,8 +12,9 @@ import (
 	"github.com/remarqable/tmpio/internal/platform/errors"
 )
 
-// Invite is a pending invitation to an organization. The token is never
-// stored, only its hash, the same way a sharing link works.
+// Invite is a pending invitation to an organization, for an email address.
+// Whoever next signs in with that address, as verified by their identity
+// provider, joins. TokenHash is left from when invitations were links.
 type Invite struct {
 	ID              int64 `gorm:"primaryKey"`
 	TenantID        int64
@@ -51,7 +51,9 @@ type PendingInvite struct {
 	Expired   bool
 }
 
-const inviteLifetime = 14 * 24 * time.Hour
+// Long enough that someone can get round to signing in; an invite that is no
+// longer wanted is revoked, not left to lapse.
+const inviteLifetime = 90 * 24 * time.Hour
 
 // Members lists who belongs to this organization.
 func (o *Ops) Members(ctx context.Context, p Principal) ([]MemberInfo, error) {
@@ -108,32 +110,30 @@ func (o *Ops) PendingInvites(ctx context.Context, p Principal) ([]PendingInvite,
 	return out, err
 }
 
-// CreateInvite records an invitation and returns the secret token once. The
-// token is shown to the inviter to pass on; this server sends no mail.
+// CreateInvite records an invitation for an address. Nothing is sent: the
+// person joins the next time they sign in with that address.
 func (o *Ops) CreateInvite(ctx context.Context, p Principal, email, role string) (string, error) {
 	if !RoleAdmin(p.Role) {
 		return "", errors.New(errors.CodeForbidden, "only an owner can invite people")
 	}
-	email = strings.ToLower(strings.TrimSpace(email))
-	if email == "" || !strings.Contains(email, "@") {
-		return "", errors.New(errors.CodeValidationFailed, "an email address is required")
+	email, err := normalizeEmail(email)
+	if err != nil {
+		return "", err
 	}
 	if len(RoleScopes(role)) == 0 {
 		return "", errors.New(errors.CodeValidationFailed, "role must be owner, editor or viewer")
 	}
-	token := NewToken()
 	uid := p.UserID
 	inv := &Invite{
 		TenantID: p.TenantID, Email: email, Role: role,
-		TokenHash: HashToken(token), CreatedByUserID: &uid,
-		ExpiresAt: time.Now().Add(inviteLifetime),
+		CreatedByUserID: &uid, ExpiresAt: time.Now().Add(inviteLifetime),
 	}
 	if err := db.WithTenant(ctx, p.TenantID, func(tx *gorm.DB) error {
 		return tx.Create(inv).Error
 	}); err != nil {
 		return "", err
 	}
-	return token, nil
+	return email, nil
 }
 
 // RevokeInvite withdraws an unaccepted invitation.
@@ -148,68 +148,17 @@ func (o *Ops) RevokeInvite(ctx context.Context, p Principal, id int64) error {
 	})
 }
 
-// AcceptInvite turns a token into a membership for this user. The lookup and
-// the write both run in a SECURITY DEFINER function, because the accepter is
-// not yet a member and so cannot see the row under the tenant policy.
-func AcceptInvite(ctx context.Context, token string, userID int64) (int64, error) {
-	var tenantID int64
-	err := db.WithTx(ctx, func(tx *gorm.DB) error {
-		var err error
-		if tenantID, err = acceptInviteTx(tx, token, userID); err != nil {
-			return err
-		}
-		if tenantID == 0 {
-			return errors.New(errors.CodeNotFound, "that invitation is not valid any more")
-		}
-		return nil
-	})
-	return tenantID, err
-}
-
-// acceptInviteTx accepts an invitation inside the caller's transaction and
-// returns the organization joined, or 0 when the token is unknown, used,
-// revoked or expired. SignInWith uses it to create an account and its
-// membership together.
-func acceptInviteTx(tx *gorm.DB, token string, userID int64) (int64, error) {
-	var got sql.NullInt64
-	if err := tx.Raw(`SELECT accept_invite(decode(?, 'hex'), ?)`, HashHex(token), userID).Scan(&got).Error; err != nil {
-		return 0, err
+// acceptInvitesTx accepts every pending invitation for a verified address,
+// inside the sign-in transaction, and returns the organizations joined. The
+// work is in a SECURITY DEFINER function because the person is not yet a
+// member of those organizations and cannot see the rows.
+func acceptInvitesTx(tx *gorm.DB, email string, userID int64) ([]int64, error) {
+	var joined []int64
+	if strings.TrimSpace(email) == "" {
+		return nil, nil
 	}
-	return got.Int64, nil
-}
-
-// InviteInfo describes an invitation to whoever is holding the link, without
-// requiring them to be a member yet.
-type InviteInfo struct {
-	TenantID int64
-	Email    string
-	Role     string
-	Valid    bool
-}
-
-// LookupInvite reads an invitation by token for the acceptance page.
-func LookupInvite(ctx context.Context, token string) (*InviteInfo, error) {
-	var row struct {
-		ID         int64
-		TenantID   int64
-		Email      string
-		Role       string
-		ExpiresAt  time.Time
-		AcceptedAt *time.Time
-		RevokedAt  *time.Time
-	}
-	err := db.WithTx(ctx, func(tx *gorm.DB) error {
-		return tx.Raw(`SELECT id, tenant_id, email, role, expires_at, accepted_at, revoked_at FROM lookup_invite(decode(?, 'hex'))`, HashHex(token)).Scan(&row).Error
-	})
-	if err != nil {
-		return nil, err
-	}
-	if row.ID == 0 {
-		return nil, errors.New(errors.CodeNotFound, "no such invitation")
-	}
-	info := &InviteInfo{TenantID: row.TenantID, Email: row.Email, Role: row.Role}
-	info.Valid = row.AcceptedAt == nil && row.RevokedAt == nil && row.ExpiresAt.After(time.Now())
-	return info, nil
+	err := tx.Raw(`SELECT accept_invites_for_email(?, ?)`, email, userID).Scan(&joined).Error
+	return joined, err
 }
 
 // SetMemberRole changes what a member may do. The last owner cannot be

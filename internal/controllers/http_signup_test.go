@@ -133,59 +133,68 @@ func TestAllowlistRejectsANonAddress(t *testing.T) {
 	assert.Empty(t, rows)
 }
 
-// TestInviteLetsSomeoneInWhileSignupsAreClosed: an invitation link is enough
-// to get in, but only as a member of the site that invited them. They get no
-// site of their own, and the link cannot be used twice.
+// TestInviteLetsSomeoneInWhileSignupsAreClosed: being invited is enough to
+// get in, but only as a member of the site that invited them. They get no
+// site of their own, and nobody else gets in on the strength of it.
 func TestInviteLetsSomeoneInWhileSignupsAreClosed(t *testing.T) {
 	h := newHarness(t)
 	owner := h.signIn("owner@x.test")
 	writePage(t, owner, "/business/plan.md", "# Plan\n\nShared with the team.\n")
-	token := inviteLink(t, owner, "guest@x.test", models.RoleEditor)
+	invite(t, owner, "guest@x.test", models.RoleEditor)
 	h.cfg.SignupsEnabled = false
 
-	guest, loc := devSignIn(h, "guest@x.test", "/invite/"+token)
-	assert.Equal(t, "/", loc, "the invite was accepted on the way in")
+	guest, loc := devSignIn(h, "guest@x.test", "")
+	assert.Equal(t, "/", loc)
 	assert.Equal(t, []string{models.RoleEditor}, memberships(t, "guest@x.test"), "a member of the inviting site and nothing else")
 
 	res := guest.do("GET", "/business/plan", nil, nil)
 	body := readAll(res)
-	assert.Equal(t, 200, res.StatusCode)
+	assert.Equal(t, 200, res.StatusCode, "they land in the inviting site")
 	assert.Contains(t, body, "Shared with the team")
 
-	// Somebody else holding the same link is refused, and nothing is created.
+	// Another address is still refused, and nothing is created for it.
 	before := userCount(t)
-	_, loc = devSignIn(h, "forwarded@x.test", "/invite/"+token)
+	_, loc = devSignIn(h, "someone-else@x.test", "")
 	assert.Equal(t, "/login?closed=1", loc)
 	assert.Equal(t, before, userCount(t))
 }
 
-// TestBogusInviteDoesNotOpenSignups: a made-up token is not a way in.
-func TestBogusInviteDoesNotOpenSignups(t *testing.T) {
-	h := newHarness(t)
-	h.cfg.SignupsEnabled = false
-	before := userCount(t)
-	_, loc := devSignIn(h, "chancer@x.test", "/invite/not-a-real-token")
-	assert.Equal(t, "/login?closed=1", loc)
-	assert.Equal(t, before, userCount(t))
-}
-
-// TestAllowedInviteeGetsBoth: someone who is on the allowlist and was invited
-// gets their own site, and goes on to the invite page to accept it there.
+// TestAllowedInviteeGetsBoth: someone who is on the allowlist and invited gets
+// their own site and the membership, and starts in the site that invited them.
 func TestAllowedInviteeGetsBoth(t *testing.T) {
 	h := newHarness(t)
 	admin := instanceAdminClient(t, h, "admin@x.test")
-	token := inviteLink(t, admin, "both@x.test", models.RoleViewer)
+	writePage(t, admin, "/business/plan.md", "# Plan\n")
+	invite(t, admin, "both@x.test", models.RoleViewer)
 	res := admin.form("/admin/server/allow", url.Values{"email": {"both@x.test"}})
 	res.Body.Close()
 	h.cfg.SignupsEnabled = false
 
-	guest, loc := devSignIn(h, "both@x.test", "/invite/"+token)
-	assert.Equal(t, "/invite/"+token, loc, "the invite is still theirs to accept")
-	assert.Equal(t, []string{"owner"}, memberships(t, "both@x.test"))
-
-	guest.csrf = csrfFrom(t, readAll(guest.do("GET", "/admin", nil, nil)))
-	res = guest.form("/invite/"+token+"/accept", url.Values{})
-	res.Body.Close()
-	require.Equal(t, 303, res.StatusCode)
+	guest, loc := devSignIn(h, "both@x.test", "")
+	assert.Equal(t, "/", loc)
 	assert.Equal(t, []string{"owner", models.RoleViewer}, memberships(t, "both@x.test"))
+	res = guest.do("GET", "/business/plan", nil, nil)
+	res.Body.Close()
+	assert.Equal(t, 200, res.StatusCode, "starts in the inviting site")
+}
+
+// TestInvitingAMemberAgainDoesNotDemote: an owner who invites their own
+// address as a viewer, and signs in, is still an owner.
+func TestInvitingAMemberAgainDoesNotDemote(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	invite(t, owner, "owner@x.test", models.RoleViewer)
+	h.signIn("owner@x.test")
+	assert.Equal(t, []string{"owner"}, memberships(t, "owner@x.test"))
+}
+
+// TestExpiredInviteJoinsNothing: an invitation past its date is not a way in.
+func TestExpiredInviteJoinsNothing(t *testing.T) {
+	h := newHarness(t)
+	owner := h.signIn("owner@x.test")
+	invite(t, owner, "late@x.test", models.RoleEditor)
+	require.NoError(t, db.OwnerForTest(t).Exec(`UPDATE invite SET expires_at = now() - interval '1 day'`).Error)
+	h.cfg.SignupsEnabled = false
+	_, loc := devSignIn(h, "late@x.test", "")
+	assert.Equal(t, "/login?closed=1", loc)
 }

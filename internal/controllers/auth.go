@@ -166,18 +166,15 @@ func (d *Deps) LocalLogin(c *gin.Context) {
 	if raw := c.PostForm("oauth"); raw != "" && json.Valid([]byte(raw)) {
 		oauthReq = []byte(raw)
 	}
-	d.startSession(c, user, false, ret, oauthReq)
+	d.startSession(c, user, false, ret, oauthReq, 0)
 }
 
 func (d *Deps) finishSignIn(c *gin.Context, ident models.ExternalIdentity, returnPath string, oauthReq []byte) {
 	ctx := c.Request.Context()
-	// Someone who followed an invitation link is on their way back to it. While
-	// sign-ups are closed, that link is what lets them in.
-	pol := models.CreatePolicy{Open: d.Cfg.SignupsEnabled, InviteToken: inviteTokenFrom(returnPath)}
-	res, err := models.SignInWith(ctx, ident, models.DefaultSiteConfigYAML, models.WelcomeMarkdown(d.Cfg.AppOrigin), pol)
+	res, err := models.SignInWith(ctx, ident, models.DefaultSiteConfigYAML, models.WelcomeMarkdown(d.Cfg.AppOrigin), d.Cfg.SignupsEnabled)
 	if err != nil {
 		if errors.Is(err, errors.CodeSignupsClosed) {
-			obs.From(ctx).Info().Str("event", "auth.signup_refused").Bool("invite", pol.InviteToken != "").Msg("")
+			obs.From(ctx).Info().Str("event", "auth.signup_refused").Msg("")
 			middleware.NoStore(c)
 			c.Redirect(http.StatusFound, "/login?closed=1")
 			return
@@ -186,37 +183,32 @@ func (d *Deps) finishSignIn(c *gin.Context, ident models.ExternalIdentity, retur
 		d.authError(c)
 		return
 	}
-	if res.JoinedByInvite {
-		// The invitation was accepted as part of creating the account; the
-		// invite page would only say it has been used.
-		obs.From(ctx).Info().Str("event", "auth.joined_by_invite").Int64("tenant_id", res.Tenant.ID).Msg("")
-		returnPath = "/"
+	actIn := int64(0)
+	if len(res.Joined) > 0 {
+		// Just invited: start in the site that invited them, not their own.
+		actIn = res.Tenant.ID
+		obs.From(ctx).Info().Str("event", "auth.joined_by_invite").Int("organizations", len(res.Joined)).Int64("user_id", res.User.ID).Msg("")
 	}
-	d.startSession(c, res.User, res.Created, returnPath, oauthReq)
-}
-
-// inviteTokenFrom returns the token in a return path of the form
-// /invite/<token>, or "".
-func inviteTokenFrom(returnPath string) string {
-	tok, ok := strings.CutPrefix(returnPath, "/invite/")
-	if !ok || tok == "" || strings.ContainsAny(tok, "/?#") {
-		return ""
-	}
-	return tok
+	d.startSession(c, res.User, res.Created, returnPath, oauthReq, actIn)
 }
 
 // startSession replaces any existing session with a fresh one and sends the
 // signed-in visitor on: to the OAuth authorization request that interrupted
 // them, or to the path they asked for.
-func (d *Deps) startSession(c *gin.Context, user *models.User, created bool, returnPath string, oauthReq []byte) {
+func (d *Deps) startSession(c *gin.Context, user *models.User, created bool, returnPath string, oauthReq []byte, actIn int64) {
 	ctx := c.Request.Context()
 	if old, err := c.Cookie(middleware.SessionCookie); err == nil && old != "" {
 		_ = models.RevokeSession(ctx, old)
 	}
-	token, _, err := models.CreateSession(ctx, user.ID)
+	token, sess, err := models.CreateSession(ctx, user.ID)
 	if err != nil {
 		d.authError(c)
 		return
+	}
+	if actIn != 0 {
+		if err := models.ActInTenant(ctx, sess.ID, user.ID, actIn); err != nil {
+			obs.From(ctx).Warn().Err(err).Msg("act in joined organization")
+		}
 	}
 	d.setSessionCookie(c, token, int(models.SessionLifetime.Seconds()))
 	obs.From(ctx).Info().Str("event", "auth.signed_in").Bool("created", created).Int64("user_id", user.ID).Msg("")

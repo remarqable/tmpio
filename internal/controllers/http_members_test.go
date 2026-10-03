@@ -1,9 +1,9 @@
 package controllers
 
 import (
+	"net/http"
 	"net/url"
 	"regexp"
-	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,67 +12,61 @@ import (
 	"github.com/remarqable/tmpio/internal/models"
 )
 
-// inviteLink creates an invitation and returns the token from the link.
-func inviteLink(t *testing.T, owner *client, email, role string) string {
+// invite invites an email address, the way the People page does.
+func invite(t *testing.T, owner *client, email, role string) {
 	t.Helper()
 	res := owner.form("/admin/members/invite", url.Values{"email": {email}, "role": {role}})
 	res.Body.Close()
 	require.Equal(t, 303, res.StatusCode)
-	loc, err := url.Parse(res.Header.Get("Location"))
-	require.NoError(t, err)
-	link := loc.Query().Get("link")
-	require.NotEmpty(t, link, "the invitation link is shown once")
-	return link[strings.LastIndex(link, "/")+1:]
+	require.Contains(t, res.Header.Get("Location"), "invited=", "the invitation is confirmed, with no link to pass on")
 }
 
-// TestInviteJoinsAnOrganization is the whole feature: an owner invites, a
-// different account accepts, and is then a member of that organization.
+// TestInviteJoinsAnOrganization is the whole feature: an owner invites an
+// address, and the next time that person signs in they are a member.
 func TestInviteJoinsAnOrganization(t *testing.T) {
 	h := newHarness(t)
 	owner := h.signIn("owner@x.test")
 	writePage(t, owner, "/business/secret.md", "# Secret\n\nOwner's document.\n")
 
-	token := inviteLink(t, owner, "guest@x.test", models.RoleEditor)
-
+	// Before the invitation the guest is in their own organization and cannot
+	// see the owner's document.
 	guest := h.signIn("guest@x.test")
-	// Before accepting, the guest is in their own organization and cannot see
-	// the owner's document.
 	res := guest.do("GET", "/business/secret", nil, nil)
 	res.Body.Close()
 	assert.Equal(t, 404, res.StatusCode, "a stranger must not read another organization")
 
-	res = guest.form("/invite/"+token+"/accept", url.Values{})
-	res.Body.Close()
-	require.Equal(t, 303, res.StatusCode)
-
-	// The membership exists, and the owner sees them listed.
+	invite(t, owner, "Guest@X.test", models.RoleEditor)
 	body := readAll(owner.do("GET", "/admin/members", nil, nil))
+	assert.Contains(t, body, "Invited, not joined yet")
+	assert.Contains(t, body, "guest@x.test", "stored lowercased")
+	assert.NotRegexp(t, `[^s]/invite/[A-Za-z0-9_-]`, body, "there is no invitation link to pass on")
+
+	// Signing in again is all it takes, and they land in the inviting site.
+	guest = h.signIn("guest@x.test")
+	res = guest.do("GET", "/business/secret", nil, nil)
+	res.Body.Close()
+	assert.Equal(t, 200, res.StatusCode, "a member reads the shared document")
+
+	body = readAll(owner.do("GET", "/admin/members", nil, nil))
 	assert.Contains(t, body, "guest@x.test")
 }
 
-// TestInviteCannotBeReused: one invitation, one membership.
-func TestInviteCannotBeReused(t *testing.T) {
+// TestInviteIsForThatAddressOnly: signing in with any other address joins
+// nothing.
+func TestInviteIsForThatAddressOnly(t *testing.T) {
 	h := newHarness(t)
 	owner := h.signIn("owner@x.test")
-	token := inviteLink(t, owner, "guest@x.test", models.RoleViewer)
+	invite(t, owner, "guest@x.test", models.RoleViewer)
 
-	guest := h.signIn("guest@x.test")
-	res := guest.form("/invite/"+token+"/accept", url.Values{})
-	res.Body.Close()
-	require.Equal(t, 303, res.StatusCode)
-
-	other := h.signIn("other@x.test")
-	res = other.form("/invite/"+token+"/accept", url.Values{})
-	res.Body.Close()
-	assert.Equal(t, 303, res.StatusCode)
-	assert.Contains(t, res.Header.Get("Location"), "error=", "a spent invitation is refused")
+	h.signIn("other@x.test")
+	assert.Equal(t, []string{"owner"}, memberships(t, "other@x.test"), "only their own site")
 }
 
 // TestRevokedInviteIsRefused covers withdrawing one before it is used.
 func TestRevokedInviteIsRefused(t *testing.T) {
 	h := newHarness(t)
 	owner := h.signIn("owner@x.test")
-	token := inviteLink(t, owner, "guest@x.test", models.RoleEditor)
+	invite(t, owner, "guest@x.test", models.RoleEditor)
 
 	body := readAll(owner.do("GET", "/admin/members", nil, nil))
 	id := regexp.MustCompile(`name="id" value="(\d+)"`).FindStringSubmatch(body)
@@ -80,10 +74,8 @@ func TestRevokedInviteIsRefused(t *testing.T) {
 	res := owner.form("/admin/members/invite/revoke", url.Values{"id": {id[1]}})
 	res.Body.Close()
 
-	guest := h.signIn("guest@x.test")
-	res = guest.form("/invite/"+token+"/accept", url.Values{})
-	res.Body.Close()
-	assert.Contains(t, res.Header.Get("Location"), "error=")
+	h.signIn("guest@x.test")
+	assert.Equal(t, []string{"owner"}, memberships(t, "guest@x.test"), "a revoked invitation joins nothing")
 }
 
 // TestViewerCannotWrite is the role actually being enforced, by the same scope
@@ -92,15 +84,11 @@ func TestViewerCannotWrite(t *testing.T) {
 	h := newHarness(t)
 	owner := h.signIn("owner@x.test")
 	writePage(t, owner, "/business/doc.md", "# Doc\n")
-	token := inviteLink(t, owner, "viewer@x.test", models.RoleViewer)
-
+	invite(t, owner, "viewer@x.test", models.RoleViewer)
 	viewer := h.signIn("viewer@x.test")
-	res := viewer.form("/invite/"+token+"/accept", url.Values{})
-	res.Body.Close()
-	require.Equal(t, 303, res.StatusCode)
 
 	// A viewer reads.
-	res = viewer.do("GET", "/business/doc", nil, nil)
+	res := viewer.do("GET", "/business/doc", nil, nil)
 	res.Body.Close()
 	assert.Equal(t, 200, res.StatusCode)
 
@@ -119,13 +107,10 @@ func TestViewerCannotWrite(t *testing.T) {
 func TestOnlyOwnerManagesPeople(t *testing.T) {
 	h := newHarness(t)
 	owner := h.signIn("owner@x.test")
-	token := inviteLink(t, owner, "editor@x.test", models.RoleEditor)
-
+	invite(t, owner, "editor@x.test", models.RoleEditor)
 	editor := h.signIn("editor@x.test")
-	res := editor.form("/invite/"+token+"/accept", url.Values{})
-	res.Body.Close()
 
-	res = editor.form("/admin/members/invite", url.Values{"email": {"someone@x.test"}, "role": {"owner"}})
+	res := editor.form("/admin/members/invite", url.Values{"email": {"someone@x.test"}, "role": {"owner"}})
 	res.Body.Close()
 	assert.Contains(t, res.Header.Get("Location"), "error=", "an editor cannot invite")
 }
@@ -151,12 +136,11 @@ func TestSwitchOrganization(t *testing.T) {
 	h := newHarness(t)
 	owner := h.signIn("owner@x.test")
 	writePage(t, owner, "/business/theirs.md", "# Theirs\n")
-	token := inviteLink(t, owner, "guest@x.test", models.RoleEditor)
-
 	guest := h.signIn("guest@x.test")
 	writePage(t, guest, "/mine/ours.md", "# Mine\n")
-	res := guest.form("/invite/"+token+"/accept", url.Values{})
-	res.Body.Close()
+	invite(t, owner, "guest@x.test", models.RoleEditor)
+	guest = h.signIn("guest@x.test")
+	var res *http.Response
 
 	// Now in the owner's organization.
 	r := guest.do("GET", "/business/theirs", nil, nil)

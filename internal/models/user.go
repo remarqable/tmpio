@@ -95,22 +95,11 @@ type ExternalIdentity struct {
 // allowCreate is false an unknown identity is refused with CodeSignupsClosed
 // and nothing is written, unless its address is on the signup allowlist.
 func SignIn(ctx context.Context, ext ExternalIdentity, initialConfig string, initialIndex string, allowCreate bool) (*User, *Tenant, bool, error) {
-	r, err := SignInWith(ctx, ext, initialConfig, initialIndex, CreatePolicy{Open: allowCreate})
+	r, err := SignInWith(ctx, ext, initialConfig, initialIndex, allowCreate)
 	if err != nil {
 		return nil, nil, false, err
 	}
 	return r.User, r.Tenant, r.Created, nil
-}
-
-// CreatePolicy says when a first sign-in may create an account.
-type CreatePolicy struct {
-	// Open: sign-ups are open to anyone.
-	Open bool
-	// InviteToken is an invitation the visitor arrived with. While sign-ups
-	// are closed it lets an address that is not on the allowlist in, but only
-	// as a member of the inviting organization: they get no site of their
-	// own, or an invitation would quietly be a full account.
-	InviteToken string
 }
 
 // SignInResult is what SignInWith did.
@@ -118,13 +107,20 @@ type SignInResult struct {
 	User    *User
 	Tenant  *Tenant
 	Created bool
-	// JoinedByInvite: the account was created by accepting InviteToken, which
-	// is now used up. The caller should not send them to the invite page.
-	JoinedByInvite bool
+	// Joined lists organizations this sign-in joined through invitations for
+	// the user's verified address. Tenant is the first of them, so someone
+	// who has just been invited lands in the site that invited them.
+	Joined []int64
 }
 
-// SignInWith is SignIn with the full creation policy.
-func SignInWith(ctx context.Context, ext ExternalIdentity, initialConfig string, initialIndex string, pol CreatePolicy) (*SignInResult, error) {
+// SignInWith is SignIn, also reporting which invitations it accepted. Every
+// sign-in accepts pending invitations for the verified address, so an
+// invitation needs no link: being invited and signing in is enough. While
+// sign-ups are closed (open false), an address that is neither allowlisted
+// nor invited is refused; one that is only invited gets an account in the
+// inviting organizations and no site of its own, or an invitation would
+// quietly be a full account.
+func SignInWith(ctx context.Context, ext ExternalIdentity, initialConfig string, initialIndex string, open bool) (*SignInResult, error) {
 	if ext.Issuer == "" || ext.Subject == "" {
 		return nil, errors.New(errors.CodeUnauthorized, "identity is incomplete")
 	}
@@ -135,11 +131,18 @@ func SignInWith(ctx context.Context, ext ExternalIdentity, initialConfig string,
 	if !SelfIssued(ext.Issuer) && !ext.EmailVerified {
 		return nil, errors.New(errors.CodeUnauthorized, "a verified email address is required")
 	}
+	// Invitations are matched only against an address the provider vouches
+	// for. A self-issued identity's address is whatever was configured.
+	verified := ""
+	if ext.EmailVerified {
+		verified = strings.ToLower(strings.TrimSpace(ext.Email))
+	}
 	var (
 		user    User
 		tenant  Tenant
 		created bool
-		joined  bool
+		joined  []int64
+		ownSite = true
 	)
 	err := db.WithTx(ctx, func(tx *gorm.DB) error {
 		var ident Identity
@@ -163,24 +166,28 @@ func SignInWith(ctx context.Context, ext ExternalIdentity, initialConfig string,
 					return err
 				}
 			}
-			t, _, err := currentTenantForUser(tx, user.ID, 0)
+			if joined, err = acceptInvitesTx(tx, verified, user.ID); err != nil {
+				return err
+			}
+			prefer := int64(0)
+			if len(joined) > 0 {
+				prefer = joined[0]
+			}
+			t, _, err := currentTenantForUser(tx, user.ID, prefer)
 			if err != nil {
 				return err
 			}
 			tenant = *t
 			return nil
 		case goerrors.Is(err, gorm.ErrRecordNotFound):
-			if !pol.Open {
-				ok, err := signupAllowed(tx, ext.Email)
+			if !open {
+				ok, err := signupAllowed(tx, verified)
 				if err != nil {
 					return err
 				}
-				if !ok {
-					if pol.InviteToken == "" {
-						return errors.New(errors.CodeSignupsClosed, "new accounts are not being created right now")
-					}
-					joined = true
-				}
+				// Not allowlisted: an invitation is the only way in, checked
+				// once the account exists to accept it.
+				ownSite = ok
 			}
 		default:
 			return err
@@ -194,25 +201,24 @@ func SignInWith(ctx context.Context, ext ExternalIdentity, initialConfig string,
 		if err := tx.Create(&ident).Error; err != nil {
 			return err
 		}
-		if joined {
-			// The invitation is accepted in the same transaction that creates
-			// the account, so a link that turns out to be used, revoked or
-			// expired leaves nothing behind.
-			tid, err := acceptInviteTx(tx, pol.InviteToken, user.ID)
-			if err != nil {
+		if ownSite {
+			if _, err := createTenantWithOwner(tx, user.ID, initialConfig, initialIndex); err != nil {
 				return err
 			}
-			if tid == 0 {
-				return errors.New(errors.CodeSignupsClosed, "that invitation is not valid any more")
-			}
-			t, _, err := currentTenantForUser(tx, user.ID, tid)
-			if err != nil {
-				return err
-			}
-			tenant = *t
-			return nil
 		}
-		t, err := createTenantWithOwner(tx, user.ID, initialConfig, initialIndex)
+		// In the same transaction as the account, so someone who turns out to
+		// have no valid invitation and no other way in leaves nothing behind.
+		if joined, err = acceptInvitesTx(tx, verified, user.ID); err != nil {
+			return err
+		}
+		if !ownSite && len(joined) == 0 {
+			return errors.New(errors.CodeSignupsClosed, "new accounts are not being created right now")
+		}
+		prefer := int64(0)
+		if len(joined) > 0 {
+			prefer = joined[0]
+		}
+		t, _, err := currentTenantForUser(tx, user.ID, prefer)
 		if err != nil {
 			return err
 		}
@@ -222,7 +228,7 @@ func SignInWith(ctx context.Context, ext ExternalIdentity, initialConfig string,
 	if err != nil {
 		return nil, err
 	}
-	return &SignInResult{User: &user, Tenant: &tenant, Created: created, JoinedByInvite: joined}, nil
+	return &SignInResult{User: &user, Tenant: &tenant, Created: created, Joined: joined}, nil
 }
 
 // createTenantWithOwner creates the organization, owner membership and initial
