@@ -73,7 +73,10 @@ func TestPublicSiteHeaders(t *testing.T) {
 	require.Equal(t, 200, res.StatusCode)
 	require.Contains(t, res.Header.Get("Content-Type"), "text/html")
 	require.Equal(t, "nosniff", res.Header.Get("X-Content-Type-Options"))
-	require.Contains(t, res.Header.Get("Cache-Control"), "public", "static files are cacheable")
+	// The same URL is the visitor's own site once they sign in, so a browser
+	// must revalidate rather than reuse a signed-out copy.
+	require.Equal(t, "no-cache", res.Header.Get("Cache-Control"))
+	require.Contains(t, res.Header.Get("Vary"), "Cookie")
 
 	// The application's strict policy applies until the operator relaxes it.
 	appCSP := res.Header.Get("Content-Security-Policy")

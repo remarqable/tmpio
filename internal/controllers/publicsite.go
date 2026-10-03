@@ -115,9 +115,13 @@ func (d *Deps) publicSiteHeaders(c *gin.Context, name string) {
 		c.Header("Content-Type", ct)
 	}
 	c.Header("X-Content-Type-Options", "nosniff")
-	// Static files are public by definition; the application's no-store is for
-	// tenant content and does not apply here.
-	c.Header("Cache-Control", "public, max-age=300")
+	// Every path served from here shows the visitor's own site once they sign
+	// in, so a copy must never be reused without asking. With max-age, a
+	// browser that had seen the front page signed out kept showing it after
+	// sign-in, and its Sign in button looped back to the stale copy. no-cache
+	// still lets the browser keep the file; checking it costs a 304.
+	c.Header("Cache-Control", "no-cache")
+	c.Header("Vary", "Cookie")
 	if d.Cfg.PublicSiteCSP != "" {
 		c.Header("Content-Security-Policy", d.Cfg.PublicSiteCSP)
 	}
